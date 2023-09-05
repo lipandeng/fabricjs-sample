@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clean Region</title>
+    <script src="js/fabric.js"></script>
+</head>
+<body>
+<div>
+    <button id="btnAddRegion" onclick="addRegion()">添加</button>
+    <button id="btnCompleteRegion" onclick="completeRegion()" disabled>完成</button>
+</div>
+<div style="border: 1px solid gray;width: 500px">
+    <canvas id="c" width="500" height="500"></canvas>
+</div>
+</body>
+</html>
+<style type="text/css">
+    button {
+        margin: 10px 20px;
+    }
+</style>
+<script type="text/javascript">
+    let regionPoints = []
+    let mouseDownOption = null
+    let regionAdding = false
+    let rid = `region-${new Date().getTime()}`;
+
+    fabric.Object.prototype.originX = fabric.Object.prototype.originY = 'center';
+    fabricCanvas = new fabric.Canvas('c');
+
+    fabricCanvas.on('mouse:down', opt => {
+        mouseDownOption = opt
+    })
+    fabricCanvas.on('mouse:up', opt => {
+        if (mouseDownOption.target == null) { //未选中时再触发
+            if (opt.pointer.x == mouseDownOption.pointer.x &&
+                opt.pointer.y == mouseDownOption.pointer.y) {
+                canvasMouseDown(opt)
+            }
+        } else {
+            //检查是否移动出画布
+            let obj = opt.target
+            let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
+            let objBoundingRect = obj.getBoundingRect()
+            let repair = false
+            if (objBoundingRect.left < canvasBoundaries.tl.x) {
+                obj.set({
+                    left: canvasBoundaries.tl.x
+                })
+                repair = true
+            }
+
+            if (objBoundingRect.left + objBoundingRect.width > canvasBoundaries.br.x) {
+                obj.set({
+                    left: canvasBoundaries.br.x //- objBoundingRect.width
+                })
+                repair = true
+            }
+
+            if (objBoundingRect.top < canvasBoundaries.tl.y) {
+                obj.set({
+                    top: canvasBoundaries.tl.y
+                })
+                repair = true
+            }
+
+            if (objBoundingRect.top + objBoundingRect.height > canvasBoundaries.br.y) {
+                obj.set({
+                    top: canvasBoundaries.br.y //- objBoundingRect.height
+                })
+                repair = true
+            }
+            if (!repair) {
+                return;
+            }
+            obj.setCoords()
+            if ('cid' in obj && obj.cid.match(RegExp(/circle-/))) {
+                let index = obj.cid.split('-')[1] // 通过cid可以判断出当前操作的是哪个圆形，并且圆形的cid最后一位对应多边形指定的顶点
+                let polygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == obj.rid)[0];
+                let points = polygon.points // 获取多边形定点
+                points[index].x = obj.left // 修改指定顶点的x坐标
+                points[index].y = obj.top // 修改指定定点的y坐标
+                polygon.setCoords()
+
+                let centerPoint = getPolygonCenter(points)
+                let textObj = fabricCanvas.getObjects('text').filter(item => item.rid == obj.rid)[0];
+                textObj.set({
+                    left: centerPoint.x,
+                    top: centerPoint.y
+                })
+                textObj.setCoords()
+            }
+        }
+        mouseDownOption = null
+    })
+
+    fabricCanvas.on('object:moving', function (e) {
+        // 当前移动的元素
+        let target = e.target
+        // 如果存在自定义属性和指定值就执行以下代码（本例主要筛选出刚刚创建的几个圆形）
+        if ('cid' in target && target.cid.match(RegExp(/circle-/))) {
+            let index = target.cid.split('-')[1] // 通过cid可以判断出当前操作的是哪个圆形，并且圆形的cid最后一位对应多边形指定的顶点
+            //console.info(target.rid)
+            let points = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0].points // 获取多边形定点
+            points[index].x = target.left // 修改指定顶点的x坐标
+            points[index].y = target.top // 修改指定定点的y坐标
+
+            let centerPoint = getPolygonCenter(points)
+            fabricCanvas.getObjects('text').filter(item => item.rid == target.rid)[0].set({
+                left: centerPoint.x,
+                top: centerPoint.y
+            })
+            fabricCanvas.renderAll() // 刷新画布
+        }
+    })
+
+    function addRegion() {
+        regionPoints = []
+        regionAdding = true
+        document.getElementById('btnCompleteRegion').disabled = true
+    }
+
+    function completeRegion() {
+        document.getElementById('btnCompleteRegion').disabled = true
+        regionAdding = false
+        //删除临时线
+        fabricCanvas.getObjects('line').forEach(item => {
+            if (item.tag == 'tempLine') {
+                fabricCanvas.remove(item)
+            }
+        })
+
+        //添加polyline
+        // 多边形
+        const polygon = new fabric.Polygon(
+            regionPoints, // 顶点坐标集
+            {
+                fill: '#d5ece0', // 填充红色
+                stroke: 'black', // 边框黑色
+                strokeWidth: 1, // 边框粗细
+                objectCaching: false, // 当“true”时，对象缓存在另一个画布上。当“false”时，除非必要(clipPath)默认为 true，否则不缓存对象。默认是true
+                selectable: false, // 禁止选中
+                evented: false, // 当设置为“false”时，对象不能成为事件的目标。所有事件都会通过它传播。
+                rid: rid,
+            }
+        )
+        fabricCanvas.add(polygon)
+
+        let centerPoint = getPolygonCenter(regionPoints)
+        //console.info(centerPoint)
+        //添加命名
+        let text = new fabric.Text('区域' + rid.substring(rid.length - 3, rid.length), {
+            left: centerPoint.x,
+            top: centerPoint.y,
+            fontSize: 16,
+            selectable: false,
+            evented: false,
+            rid: rid,
+        })
+        fabricCanvas.add(text)
+
+        fabricCanvas.getObjects('circle').forEach(item => {
+            if (item.rid == rid) {
+                item.bringToFront()
+            }
+        })
+
+        regionPoints = []
+        rid = `region-${new Date().getTime()}`
+
+
+    }
+
+    function addCircle(p) {
+        let cc = new fabric.Circle({
+            left: p.x,
+            top: p.y,
+            strokeWidth: 3,
+            radius: 8,
+            fill: '#fff',
+            stroke: '#666',
+            hasControls: false, // 不显示控制器
+            rid: rid,
+            cid: `circle-${regionPoints.length - 1}`, // 自定义属性
+            borderColor: '#0048ff',
+        })
+        fabricCanvas.add(cc)
+        if (regionPoints.length >= 2) {
+            addLine(regionPoints[regionPoints.length - 2], p)
+        }
+    }
+
+    function addLine(p1, p2) {
+        let _line = new fabric.Line([p1.x, p1.y,
+            p2.x, p2.y
+        ], {
+            stroke: 'black',
+            selectable: false,
+            tag: 'tempLine',
+            evented: false,
+        })
+        fabricCanvas.add(_line)
+    }
+
+    function canvasMouseDown(opt) {
+        let point = fabricCanvas.getPointer(opt.e)
+        //console.info(point, point.x, point.y)
+        if (regionAdding) {
+            regionPoints.push(point)
+            addCircle(point)
+            if (regionPoints.length >= 3) {
+                document.getElementById('btnCompleteRegion').disabled = false
+            }
+        }
+    }
+
+    /**
+     * 获取多边形中心点
+     * @param {Point[]} points 点坐标数组 [{x:0,y:0}...]
+     */
+    function getPolygonCenter(points) {
+        if (!Array.isArray(points) || points.length < 3) {
+            console.error("多边形坐标集合不能少于3个");
+            return;
+        }
+        const result = {x: 0, y: 0};
+        points.forEach((p) => {
+            result.x += p.x;
+            result.y += p.y;
+        });
+        result.x /= points.length;
+        result.y /= points.length;
+        return result;
+    }
+
+
+</script>
