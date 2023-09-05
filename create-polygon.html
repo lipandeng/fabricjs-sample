@@ -77,45 +77,7 @@
                 return;
             }
             obj.setCoords()
-            if ('cid' in obj && obj.cid.match(RegExp(/circle-/))) {
-                let index = obj.cid.split('-')[1] // 通过cid可以判断出当前操作的是哪个圆形，并且圆形的cid最后一位对应多边形指定的顶点
-                if (obj.completedPolygon) {
-                    let polygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == obj.rid)[0];
-                    let points = polygon.points // 获取多边形定点
-                    points[index].x = obj.left // 修改指定顶点的x坐标
-                    points[index].y = obj.top // 修改指定定点的y坐标
-                    polygon.setCoords()
-
-                    let centerPoint = getPolygonCenter(points)
-                    let textObj = fabricCanvas.getObjects('text').filter(item => item.rid == obj.rid)[0];
-                    textObj.set({
-                        left: centerPoint.x,
-                        top: centerPoint.y
-                    })
-                    textObj.setCoords()
-                } else {
-                    let tempLineList = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine')
-                    regionPoints[index] = {
-                        x: obj.left,
-                        y: obj.top
-                    }
-                    if (tempLineList.length > 0) {
-                        let prveLineIndex = index - 1
-                        if (prveLineIndex >= 0) {//前一条线
-                            tempLineList[prveLineIndex].set({
-                                x2: obj.left,
-                                y2: obj.top
-                            }).setCoords()
-                        }
-                        if (index != tempLineList.length) {//后一条线
-                            tempLineList[index].set({
-                                x1: obj.left,
-                                y1: obj.top
-                            }).setCoords()
-                        }
-                    }
-                }
-            }
+            adjustingPolygonPoint(obj)
         }
         mouseDownOption = null
     })
@@ -123,12 +85,18 @@
     fabricCanvas.on('object:moving', function (e) {
         // 当前移动的元素
         let target = e.target
-        // 如果存在自定义属性和指定值就执行以下代码（本例主要筛选出刚刚创建的几个圆形）
+        adjustingPolygonPoint(target)
+    })
+
+    /**
+     * 调整多边形点
+     */
+    function adjustingPolygonPoint(target) {
+        // 判断是多边形点
         if ('cid' in target && target.cid.match(RegExp(/circle-/))) {
-            let index = target.cid.split('-')[1] // 通过cid可以判断出当前操作的是哪个圆形，并且圆形的cid最后一位对应多边形指定的顶点
-            if (target.completedPolygon) {
-                //console.info(target.rid)
-                let points = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0].points // 获取多边形定点
+            let index = target.cid.split('-')[1] // 获取cid
+            if (target.completedPolygon) {//已完成的多边形
+                let points = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0].points // 获取多边形的点
                 points[index].x = target.left // 修改指定顶点的x坐标
                 points[index].y = target.top // 修改指定定点的y坐标
 
@@ -138,9 +106,8 @@
                     top: centerPoint.y
                 })
                 fabricCanvas.renderAll() // 刷新画布
-            } else {
+            } else {//创建中的多边形
                 let tempLineList = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine')
-                //console.info(tempLineList)
                 regionPoints[index] = {
                     x: target.left,
                     y: target.top
@@ -162,7 +129,7 @@
                 }
             }
         }
-    })
+    }
 
     function addRegion() {
         regionPoints = []
