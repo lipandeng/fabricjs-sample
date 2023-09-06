@@ -7,8 +7,10 @@
 </head>
 <body>
 <div>
-    <button id="btnAddRegion" onclick="addRegion()">添加</button>
+    <button onclick="addRegion()">添加区域</button>
     <button id="btnCompleteRegion" onclick="completeRegion()" disabled>完成</button>
+    <button onclick="getRegion()">获取区域</button>
+    <button onclick="getCircle()">获取圆点</button>
 </div>
 <div style="border: 1px solid gray;width: 500px">
     <canvas id="c" width="500" height="500"></canvas>
@@ -21,12 +23,21 @@
     }
 </style>
 <script type="text/javascript">
+    var deleteIcon = "data:image/svg+xml,%3C%3Fxml version='1.0' encoding='utf-8'%3F%3E%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg version='1.1' id='Ebene_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' x='0px' y='0px' width='595.275px' height='595.275px' viewBox='200 215 230 470' xml:space='preserve'%3E%3Ccircle style='fill:%23F44336;' cx='299.76' cy='439.067' r='218.516'/%3E%3Cg%3E%3Crect x='267.162' y='307.978' transform='matrix(0.7071 -0.7071 0.7071 0.7071 -222.6202 340.6915)' style='fill:white;' width='65.545' height='262.18'/%3E%3Crect x='266.988' y='308.153' transform='matrix(0.7071 0.7071 -0.7071 0.7071 398.3889 -83.3116)' style='fill:white;' width='65.544' height='262.179'/%3E%3C/g%3E%3C/svg%3E";
+
+    var deleteImg = document.createElement('img');
+    deleteImg.src = deleteIcon;
+
     let regionPoints = []
     let mouseDownOption = null
     let regionAdding = false
     let rid = `region-${new Date().getTime()}`;
 
     fabric.Object.prototype.originX = fabric.Object.prototype.originY = 'center';
+    fabric.Object.prototype.transparentCorners = false;
+    fabric.Object.prototype.cornerColor = 'blue';
+    fabric.Object.prototype.cornerStyle = 'circle';
+
     fabricCanvas = new fabric.Canvas('c', {
         selection: false
     });
@@ -41,62 +52,140 @@
                 canvasMouseDown(opt)
             }
         } else {
-            //检查是否移动出画布
-            let obj = opt.target
-            let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
-            let objBoundingRect = obj.getBoundingRect()
-            let repair = false
-            if (objBoundingRect.left < canvasBoundaries.tl.x) {
-                obj.set({
-                    left: canvasBoundaries.tl.x
-                })
-                repair = true
-            }
 
-            if (objBoundingRect.left + objBoundingRect.width > canvasBoundaries.br.x) {
-                obj.set({
-                    left: canvasBoundaries.br.x //- objBoundingRect.width
-                })
-                repair = true
-            }
-
-            if (objBoundingRect.top < canvasBoundaries.tl.y) {
-                obj.set({
-                    top: canvasBoundaries.tl.y
-                })
-                repair = true
-            }
-
-            if (objBoundingRect.top + objBoundingRect.height > canvasBoundaries.br.y) {
-                obj.set({
-                    top: canvasBoundaries.br.y //- objBoundingRect.height
-                })
-                repair = true
-            }
-            if (!repair) {
-                return;
-            }
-            obj.setCoords()
-            adjustingPolygonPoint(obj)
         }
         mouseDownOption = null
     })
 
-    fabricCanvas.on('object:moving', function (e) {
+    fabricCanvas.on('object:moving', function (opt) {
         // 当前移动的元素
-        let target = e.target
-        adjustingPolygonPoint(target)
+        //let target = e.target
+        let obj = opt.target
+        let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
+
+        let repair = false
+        //检查是否移动出画布
+        if (obj.left < canvasBoundaries.tl.x) {
+            obj.set({
+                left: canvasBoundaries.tl.x
+            })
+            repair = true
+        }
+
+        if (obj.left > canvasBoundaries.br.x) {
+            obj.set({
+                left: canvasBoundaries.br.x
+            })
+            repair = true
+        }
+
+        if (obj.top < canvasBoundaries.tl.y) {
+            obj.set({
+                top: canvasBoundaries.tl.y
+            })
+            repair = true
+        }
+
+        if (obj.top > canvasBoundaries.br.y) {
+            obj.set({
+                top: canvasBoundaries.br.y
+            })
+            repair = true
+        }
+        if (repair) {
+            console.info(repair)
+            obj.setCoords()
+        }
+        adjustingPolygonPoint(obj, true)
     })
+
+    fabricCanvas.on('selection:created', opt => {
+        //console.info(opt.selected[0].type)
+        if (opt.selected[0].type == 'polygon') {//circle
+
+        }
+    })
+    fabricCanvas.on('selection:updated', opt => {
+        console.info(opt)
+        if (opt.selected[0].type == 'polygon') {
+
+        }
+        if (opt.deselected[0].type == 'polygon') {//circle
+
+        }
+    })
+    fabricCanvas.on('selection:cleared', opt => {
+        if (opt.deselected && opt.deselected[0].type == 'polygon') {//circle
+
+        }
+    })
+
+    function renderIcon(icon) {
+        return function renderIcon(ctx, left, top, styleOverride, fabricObject) {
+            var size = this.cornerSize;
+            ctx.save();
+            ctx.translate(left, top);
+            ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
+            ctx.drawImage(icon, -size / 2, -size / 2, size, size);
+            ctx.restore();
+            console.info(arguments)
+        }
+    }
+
+    function deleteObject(eventData, transform) {
+        var target = transform.target;
+        //console.info(target.rid)
+        var canvas = target.canvas;
+        canvas.remove(target);
+
+        canvas.getObjects('text').forEach(item => {
+            if (item.rid == target.rid) {
+                canvas.remove(item);
+            }
+        })
+        canvas.getObjects('circle').forEach(item => {
+            if (item.rid == target.rid) {
+                canvas.remove(item);
+            }
+        })
+
+        canvas.requestRenderAll();
+    }
+
+    fabric.Object.prototype.controls.deleteControl = new fabric.Control({
+        x: 0.5,
+        y: -0.5,
+        offsetY: 16,
+        cursorStyle: 'pointer',
+        mouseUpHandler: deleteObject,
+        render: renderIcon(deleteImg),
+        cornerSize: 24
+    });
+
+    /**
+     * 选中多边形
+     */
+    function activePolygon(polygon) {
+
+    }
+
+    /**
+     * 取消选中多边形
+     */
+    function deactivePolygon(polygon) {
+
+    }
 
     /**
      * 调整多边形点
      */
-    function adjustingPolygonPoint(target) {
+    function adjustingPolygonPoint(target, setPD) {
         // 判断是多边形点
         if ('cid' in target && target.cid.match(RegExp(/circle-/))) {
             let index = target.cid.split('-')[1] // 获取cid
             if (target.completedPolygon) {//已完成的多边形
-                let points = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0].points // 获取多边形的点
+                let polygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
+                let points = polygon.points // 获取多边形的点
                 points[index].x = target.left // 修改指定顶点的x坐标
                 points[index].y = target.top // 修改指定定点的y坐标
 
@@ -106,6 +195,9 @@
                     top: centerPoint.y
                 })
                 fabricCanvas.renderAll() // 刷新画布
+                if (setPD) {
+                    polygon._setPositionDimensions({})
+                }
             } else {//创建中的多边形
                 let tempLineList = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine')
                 regionPoints[index] = {
@@ -156,9 +248,15 @@
                 stroke: 'black', // 边框黑色
                 strokeWidth: 1, // 边框粗细
                 objectCaching: false, // 当“true”时，对象缓存在另一个画布上。当“false”时，除非必要(clipPath)默认为 true，否则不缓存对象。默认是true
-                selectable: false, // 禁止选中
-                evented: false, // 当设置为“false”时，对象不能成为事件的目标。所有事件都会通过它传播。
+                //selectable: false, // 禁止选中
+                //evented: false, // 当设置为“false”时，对象不能成为事件的目标。所有事件都会通过它传播。
                 rid: rid,
+                lockMovementX: true,
+                lockMovementY: true,
+                lockRotation: true,
+                lockScalingX: true,
+                lockScalingY: true,
+                //hasControls: false,
             }
         )
         fabricCanvas.add(polygon)
@@ -199,7 +297,14 @@
             radius: 8,
             fill: '#fff',
             stroke: '#666',
-            hasControls: false, // 不显示控制器
+            //hasControls: false, // 不显示控制器
+            // lockMovementX: true,
+            // lockMovementY: true,
+            lockRotation: true,
+            lockScalingX: true,
+            lockScalingY: true,
+            transparentCorners: true,
+            cornerStyle: 'rect',
             rid: rid,
             cid: `circle-${regionPoints.length - 1}`, // 自定义属性
             borderColor: '#0048ff',
@@ -254,5 +359,16 @@
         return result;
     }
 
+    function getRegion() {
+        fabricCanvas.getObjects('polygon').forEach(item => {
+            console.info(item)
+        })
+    }
+
+    function getCircle() {
+        fabricCanvas.getObjects('circle').forEach(item => {
+            console.info(item)
+        })
+    }
 
 </script>
