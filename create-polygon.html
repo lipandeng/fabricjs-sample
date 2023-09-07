@@ -467,22 +467,44 @@
                 forwardAddControl: index != 0,
                 backwardAddControl: index != cList.length - 1
             })
-            if (index == 0 && cList.length > 1) {
-
-                let _tan = Math.atan((cList[index + 1].left - cList[index].left) / (cList[index + 1].top - cList[index].top))
+            if (index != cList.length - 1) {//向后
+                let diffX = cList[index + 1].left - cList[index].left
+                let diffY = cList[index + 1].top - cList[index].top
+                let _tan = Math.atan(diffX / diffY)
                 let gamma = Math.round(Math.abs(_tan) * 180 / Math.PI)
                 let sin = Math.sin(gamma * Math.PI / 180)
                 let cos = Math.cos(gamma * Math.PI / 180)
                 const c = 2.5
                 let x = parseInt(c * sin * 10) / 10, y = parseInt(c * cos * 10) / 10
                 console.info(gamma, sin, x, y)
-
+                if (diffX < 0) {
+                    x = -x
+                }
+                if (diffY < 0) {
+                    y = -y
+                }
                 item.controls.backwardAddControl.y = y
                 item.controls.backwardAddControl.x = x
-
-
             }
-
+            if (index > 0) {//向前
+                let diffX = cList[index].left - cList[index - 1].left
+                let diffY = cList[index].top - cList[index - 1].top
+                let _tan = Math.atan(diffX / diffY)
+                let gamma = Math.round(Math.abs(_tan) * 180 / Math.PI)
+                let sin = Math.sin(gamma * Math.PI / 180)
+                let cos = Math.cos(gamma * Math.PI / 180)
+                const c = 2.5
+                let x = parseInt(c * sin * 10) / 10, y = parseInt(c * cos * 10) / 10
+                console.info(gamma, sin, x, y)
+                if (diffX > 0) {
+                    x = -x
+                }
+                if (diffY > 0) {
+                    y = -y
+                }
+                item.controls.forwardAddControl.y = y
+                item.controls.forwardAddControl.x = x
+            }
         })
     }
 
