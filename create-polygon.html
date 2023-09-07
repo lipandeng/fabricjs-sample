@@ -168,7 +168,7 @@
                     canvas.remove(orgText)
                     canvas.remove(target);
                     let newPoints = []
-                    canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a,b) => a.cid - b.cid).forEach(item => {
+                    canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
                         console.info(item.cid)
                         if (item.cid > target.cid) {
                             item.cid -= 1
@@ -178,7 +178,7 @@
                             y: item.top
                         })
                     })
-                    addPolygonToCanvas(newPoints,target.rid)
+                    addPolygonToCanvas(newPoints, target.rid)
                     canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
                         item.bringToFront()
                     })
@@ -254,22 +254,34 @@
         render: renderIcon(deleteImg),
         cornerSize: 24
     });
-    fabric.Circle.prototype.controls.leftAddControl = new fabric.Control({
+    fabric.Circle.prototype.controls.forwardAddControl = new fabric.Control({//Forward backward 向前添加
         x: -1.2,
         y: 0,
         cursorStyle: 'pointer',
-        mouseUpHandler: deleteObject,
+        mouseUpHandler: addVertex,
         render: renderIcon(addImg),
         cornerSize: 24
     });
-    fabric.Circle.prototype.controls.rightAddControl = new fabric.Control({
+    fabric.Circle.prototype.controls.backwardAddControl = new fabric.Control({//向后添加
         x: 1.2,
         y: 0,
         cursorStyle: 'pointer',
-        mouseUpHandler: deleteObject,
+        mouseUpHandler: addVertex,
         render: renderIcon(addImg),
         cornerSize: 24
     });
+
+    //添加顶点
+    function addVertex(eventData, transform) {
+        var target = transform.target;
+        var canvas = target.canvas;
+        console.info(target.cid,target.rid,transform.corner)
+        if (transform.corner == 'forwardAddControl') {
+
+        } else if (transform.corner == 'backwardAddControl') {
+
+        }
+    }
 
     /**
      * 选中多边形
@@ -356,8 +368,8 @@
                     completedPolygon: true,//完成多边形
                 })
                 item.setControlsVisibility({
-                    leftAddControl: true,
-                    rightAddControl: true
+                    forwardAddControl: true,
+                    backwardAddControl: true
                 })
                 item.bringToFront()
             }
@@ -432,8 +444,8 @@
         let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid);
         cList.forEach((item, index) => {
             item.setControlsVisibility({
-                leftAddControl: index != 0,
-                rightAddControl: index != cList.length - 1
+                forwardAddControl: index != 0,
+                backwardAddControl: index != cList.length - 1
             })
         })
     }
