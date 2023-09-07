@@ -245,37 +245,12 @@
 
     fabric.Circle.prototype.controls = {}
     //fabric.Polygon.prototype.controls.mtr  = fabric.Object.prototype.controls.mtr
-    fabric.Circle.prototype.controls.deleteControl = new fabric.Control({
-        x: 0,
-        y: 0.4,
-        offsetY: 16,
-        cursorStyle: 'pointer',
-        mouseUpHandler: deleteObject,
-        render: renderIcon(deleteImg),
-        cornerSize: 24
-    });
-    fabric.Circle.prototype.controls.forwardAddControl = new fabric.Control({//Forward backward 向前添加
-        x: -1.2,
-        y: 0,
-        cursorStyle: 'pointer',
-        mouseUpHandler: addVertex,
-        render: renderIcon(addImg),
-        cornerSize: 24
-    });
-    fabric.Circle.prototype.controls.backwardAddControl = new fabric.Control({//向后添加
-        x: 1.2,
-        y: 0,
-        cursorStyle: 'pointer',
-        mouseUpHandler: addVertex,
-        render: renderIcon(addImg),
-        cornerSize: 24
-    });
 
     //添加顶点
     function addVertex(eventData, transform) {
         var target = transform.target;
         var canvas = target.canvas;
-        console.info(target.cid,target.rid,transform.corner)
+        console.info(target.cid, target.rid, transform.corner)
         if (transform.corner == 'forwardAddControl') {
 
         } else if (transform.corner == 'backwardAddControl') {
@@ -345,9 +320,27 @@
     }
 
     function addRegion() {
-        regionPoints = []
-        regionAdding = true
-        document.getElementById('btnCompleteRegion').disabled = true
+        if (regionPoints.length != 0) {
+            if (confirm("有未完成的区域，新建后将废弃此区域数据?")) {
+                let unFinishCircleList = fabricCanvas.getObjects('circle').filter(item => !item.completedPolygon)
+                regionPoints = []
+                regionAdding = true
+                document.getElementById('btnCompleteRegion').disabled = true
+
+                //删除绘制未完成的object
+                unFinishCircleList.forEach(item => {
+                    fabricCanvas.remove(item)
+                })
+                fabricCanvas.getObjects('line').forEach(item => {
+                    if (item.tag == 'tempLine') {
+                        fabricCanvas.remove(item)
+                    }
+                })
+            }
+        } else {
+            regionAdding = true
+        }
+
     }
 
     function finishRegion() {
@@ -432,6 +425,33 @@
             cid: regionPoints.length - 1, // 自定义属性
             completedPolygon: false//完成多边形
         })
+        cc.controls = {
+            deleteControl: new fabric.Control({
+                x: 0,
+                y: 0.4,
+                offsetY: 16,
+                cursorStyle: 'pointer',
+                mouseUpHandler: deleteObject,
+                render: renderIcon(deleteImg),
+                cornerSize: 24
+            }),
+            backwardAddControl: new fabric.Control({
+                x: 1.2,
+                y: 0,
+                cursorStyle: 'pointer',
+                mouseUpHandler: addVertex,
+                render: renderIcon(addImg),
+                cornerSize: 24
+            }),
+            forwardAddControl: new fabric.Control({//Forward backward 向前添加
+                x: -1.2,
+                y: 0,
+                cursorStyle: 'pointer',
+                mouseUpHandler: addVertex,
+                render: renderIcon(addImg),
+                cornerSize: 24
+            })
+        }
         fabricCanvas.add(cc)
         initCircleControlVisibility()
         if (regionPoints.length >= 2) {
@@ -441,12 +461,28 @@
 
     //初始化圆圈contorl的显示隐藏
     function initCircleControlVisibility() {
-        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid);
+        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid).sort((a, b) => a.cid - b.cid);
         cList.forEach((item, index) => {
             item.setControlsVisibility({
                 forwardAddControl: index != 0,
                 backwardAddControl: index != cList.length - 1
             })
+            if (index == 0 && cList.length > 1) {
+
+                let _tan = Math.atan((cList[index + 1].left - cList[index].left) / (cList[index + 1].top - cList[index].top))
+                let gamma = Math.round(Math.abs(_tan) * 180 / Math.PI)
+                let sin = Math.sin(gamma * Math.PI / 180)
+                let cos = Math.cos(gamma * Math.PI / 180)
+                const c = 2.5
+                let x = parseInt(c * sin * 10) / 10, y = parseInt(c * cos * 10) / 10
+                console.info(gamma, sin, x, y)
+
+                item.controls.backwardAddControl.y = y
+                item.controls.backwardAddControl.x = x
+
+
+            }
+
         })
     }
 
