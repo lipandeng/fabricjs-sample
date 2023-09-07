@@ -8,7 +8,7 @@
 <body>
 <div>
     <button onclick="addRegion()">添加区域</button>
-    <button id="btnCompleteRegion" onclick="completeRegion()" disabled>完成</button>
+    <button id="btnCompleteRegion" onclick="finishRegion()" disabled>完成</button>
     <button onclick="getRegion()">获取区域</button>
     <button onclick="getCircle()">获取圆点</button>
 </div>
@@ -109,10 +109,10 @@
         if (opt.selected[0].type == 'polygon') {//circle
 
         }
-        console.info(opt)
+        //console.info(opt)
     })
     fabricCanvas.on('selection:updated', opt => {
-        console.info(opt)
+        //console.info(opt)
         if (opt.selected[0].type == 'polygon') {
 
         }
@@ -139,21 +139,94 @@
     }
 
     function deleteObject(eventData, transform) {
+        var target = transform.target;
+        var canvas = target.canvas;
+        if (target.type == 'circle' && target.completedPolygon &&
+            canvas.getObjects('polygon').filter(item => item.rid == target.rid)[0].points.length == 3) {
+            alert('删除失败：多边形至少3个点')
+            return
+        }
         if (confirm("确定删除吗?")) {
-            var target = transform.target;
-            var canvas = target.canvas;
-            canvas.remove(target);
+            if (target.type == 'polygon') {//删除多边形
+                canvas.remove(target);
+                canvas.getObjects('text').forEach(item => {
+                    if (item.rid == target.rid) {
+                        canvas.remove(item);
+                    }
+                })
+                canvas.getObjects('circle').forEach(item => {
+                    if (item.rid == target.rid) {
+                        canvas.remove(item);
+                    }
+                })
+            } else if (target.type == 'circle') {//删除圆
+                if (target.completedPolygon) {//完成多边形
+                    //删除原有的多边形
+                    let orgPolygon = canvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
+                    canvas.remove(orgPolygon)
+                    let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
+                    canvas.remove(orgText)
+                    canvas.remove(target);
+                    let newPoints = []
+                    canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a,b) => a.cid - b.cid).forEach(item => {
+                        console.info(item.cid)
+                        if (item.cid > target.cid) {
+                            item.cid -= 1
+                        }
+                        newPoints.push({
+                            x: item.left,
+                            y: item.top
+                        })
+                    })
+                    addPolygonToCanvas(newPoints,target.rid)
+                    canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
+                        item.bringToFront()
+                    })
+                } else {
+                    canvas.remove(target);
+                    //删除tag: 'tempLine'& 重新连线,
+                    let newP1 = null, newP2 = null;
+                    fabricCanvas.getObjects('line').forEach(item => {
+                        if (item.tag == 'tempLine') {
+                            if (item.x1 == target.left && item.y1 == target.top) {
+                                console.info(item)
+                                canvas.remove(item);
+                                newP2 = {
+                                    x: item.x2,
+                                    y: item.y2
+                                }
+                            }
+                            if (item.x2 == target.left && item.y2 == target.top) {
+                                console.info(item)
+                                canvas.remove(item);
+                                newP1 = {
+                                    x: item.x1,
+                                    y: item.y1
+                                }
+                            }
 
-            canvas.getObjects('text').forEach(item => {
-                if (item.rid == target.rid) {
-                    canvas.remove(item);
+                        }
+                    })
+                    if (newP1 && newP2) {
+                        addLine(newP1, newP2)
+                    }
+                    // 删除对象的顶点 regionPoints
+                    delete regionPoints.splice(target.cid, 1)
+                    console.info(regionPoints.length)
+                    if (regionPoints.length < 3) {
+                        document.getElementById('btnCompleteRegion').disabled = true
+                    }
+
+                    //重新对圆cid赋值
+                    canvas.getObjects('circle').forEach(item => {
+                        if (item.rid == target.rid && item.cid > target.cid) {
+                            item.cid -= 1
+                        }
+                    })
+
                 }
-            })
-            canvas.getObjects('circle').forEach(item => {
-                if (item.rid == target.rid) {
-                    canvas.remove(item);
-                }
-            })
+                //console.info(target.completedPolygon, target.cid)
+            }
             canvas.requestRenderAll();
         }
     }
@@ -217,8 +290,8 @@
      */
     function adjustingPolygonPoint(target, setPD) {
         // 判断是多边形点
-        if ('cid' in target && target.cid.match(RegExp(/circle-/))) {
-            let index = target.cid.split('-')[1] // 获取cid
+        if (target.tag == 'polygon-vertex') {
+            let index = target.cid // 获取cid
             if (target.completedPolygon) {//已完成的多边形
                 let polygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
                 let points = polygon.points // 获取多边形的点
@@ -265,7 +338,7 @@
         document.getElementById('btnCompleteRegion').disabled = true
     }
 
-    function completeRegion() {
+    function finishRegion() {
         document.getElementById('btnCompleteRegion').disabled = true
         regionAdding = false
         //删除临时线
@@ -274,11 +347,30 @@
                 fabricCanvas.remove(item)
             }
         })
+        //添加polyline
+        addPolygonToCanvas(regionPoints, rid)
 
+        fabricCanvas.getObjects('circle').forEach(item => {
+            if (item.rid == rid) {
+                item.set({
+                    completedPolygon: true,//完成多边形
+                })
+                item.setControlsVisibility({
+                    leftAddControl: true,
+                    rightAddControl: true
+                })
+                item.bringToFront()
+            }
+        })
+        regionPoints = []
+        rid = `region-${new Date().getTime()}`
+    }
+
+    function addPolygonToCanvas(vertexList, regionId) {
         //添加polyline
         // 多边形
         const polygon = new fabric.Polygon(
-            regionPoints, // 顶点坐标集
+            vertexList, // 顶点坐标集
             {
                 fill: '#d5ece0', // 填充红色
                 stroke: 'black', // 边框黑色
@@ -286,43 +378,28 @@
                 objectCaching: false, // 当“true”时，对象缓存在另一个画布上。当“false”时，除非必要(clipPath)默认为 true，否则不缓存对象。默认是true
                 //selectable: false, // 禁止选中
                 //evented: false, // 当设置为“false”时，对象不能成为事件的目标。所有事件都会通过它传播。
-                rid: rid,
+                rid: regionId,
                 lockMovementX: true,
                 lockMovementY: true,
                 lockRotation: true,
                 lockScalingX: true,
                 lockScalingY: true,
-                //hasControls: false,
             }
         )
         fabricCanvas.add(polygon)
 
-        let centerPoint = getPolygonCenter(regionPoints)
+        let centerPoint = getPolygonCenter(vertexList)
         //console.info(centerPoint)
         //添加命名
-        let text = new fabric.Text('区域' + rid.substring(rid.length - 3, rid.length), {
+        let text = new fabric.Text('区域' + regionId.substring(regionId.length - 3, regionId.length), {
             left: centerPoint.x,
             top: centerPoint.y,
             fontSize: 16,
             selectable: false,
             evented: false,
-            rid: rid,
+            rid: regionId,
         })
         fabricCanvas.add(text)
-
-        fabricCanvas.getObjects('circle').forEach(item => {
-            if (item.rid == rid) {
-                item.set({
-                    completedPolygon: true//完成多边形
-                })
-                item.bringToFront()
-            }
-        })
-
-        regionPoints = []
-        rid = `region-${new Date().getTime()}`
-
-
     }
 
     function addCircle(p) {
@@ -339,21 +416,26 @@
             //transparentCorners: true,
             cornerStyle: 'rect',
             rid: rid,
-            cid: `circle-${regionPoints.length - 1}`, // 自定义属性
+            tag: 'polygon-vertex',
+            cid: regionPoints.length - 1, // 自定义属性
             completedPolygon: false//完成多边形
         })
         fabricCanvas.add(cc)
+        initCircleControlVisibility()
+        if (regionPoints.length >= 2) {
+            addLine(regionPoints[regionPoints.length - 2], p)
+        }
+    }
+
+    //初始化圆圈contorl的显示隐藏
+    function initCircleControlVisibility() {
         let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid);
         cList.forEach((item, index) => {
             item.setControlsVisibility({
                 leftAddControl: index != 0,
                 rightAddControl: index != cList.length - 1
             })
-            console.info(index != cList.length - 1)
         })
-        if (regionPoints.length >= 2) {
-            addLine(regionPoints[regionPoints.length - 2], p)
-        }
     }
 
     function addLine(p1, p2) {
