@@ -24,9 +24,12 @@
 </style>
 <script type="text/javascript">
     var deleteIcon = "data:image/svg+xml,%3C%3Fxml version='1.0' encoding='utf-8'%3F%3E%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg version='1.1' id='Ebene_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' x='0px' y='0px' width='595.275px' height='595.275px' viewBox='200 215 230 470' xml:space='preserve'%3E%3Ccircle style='fill:%23F44336;' cx='299.76' cy='439.067' r='218.516'/%3E%3Cg%3E%3Crect x='267.162' y='307.978' transform='matrix(0.7071 -0.7071 0.7071 0.7071 -222.6202 340.6915)' style='fill:white;' width='65.545' height='262.18'/%3E%3Crect x='266.988' y='308.153' transform='matrix(0.7071 0.7071 -0.7071 0.7071 398.3889 -83.3116)' style='fill:white;' width='65.544' height='262.179'/%3E%3C/g%3E%3C/svg%3E";
-
     var deleteImg = document.createElement('img');
     deleteImg.src = deleteIcon;
+
+    var addIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAuNJREFUWEfNlz9oE3EUx7/vYtNWi7pIUEQURwe1TVJ0sR1EEdtchnaw16KLioI66OBkRXBRcNL6DwRztcUOl1apBQcLItVcqlCok6CgRDQuWhtNSO7JVZPeJWnvlwQSb37v/T6/7/vze0eo8Uc1Ph/CADsOa2vdabQxSXvA7AfgIcDDIAJzHMRxgHSSpCeZhsbn07f3fhe5nCPAtq6H7pX17lMATgPYKBIUQIzBdxiNt6bV/Z+X81kWwHtI85MkDQDcLHhwvlmMiC5FQoGbS/kvCeDvGzvIhvGozINtbgy+GFWD/cViFQXw9o6dITauORw+aQZ2MX3NEHcT6MKyUktSR+R+5+N8mwIAv6LJDNKcbs7g9qganDTtvIrWRqBnjj4Gt0YfBCNWOxvA34KrnxLJua7KNl+fEmYnAIBeJ5LJXbMj3amsbX6QswCuOAcCygNYiHxOV+WrBQCtPeOrDUrNirZaBQCf0nXu5jf3DsRNiJwC/t7wPmZMiNzetKkAAGCc1AflGzYAX492GUTnqwIATOqq3G4HUMIvAOyuEgASyVS9WYy5FPiU8DsAWy0AC32ebTVRsHy7FmViPeHXsYI5kcYmfVj+uFgDSniOgaZsAGufl3t41q/YnCAiXyQUiFoUGP0J8KpqAYAlvz7YqS8C9ITfg7C5WilwpXnLy+HgB4sCWgQgn6jcFbUhgCT9aJoJ9c1bi/A6gBPVAGBgJqrK2+2DqMTnt0IFcuM4p0DL0adrpMT8WwAbRFSoACAmZaj51VDgi02Bf89qv9O7noUrFyB/ObG9hubQkPA7KqJCmQAxAw1e655YuJD0jh5n5gGnNJSzkBBRdyQUGFlyIbFMLpFUlLSSAaToamAw/2L/51KaU6KWa3kWoqY/JtZ87Twyvm5FKtUFQheAtqJFSphig+6yIY1ND3V8cyrkgjkg4mDaLKjicnuojjxsELkymXiibi5uznbRGFk7x3/DUgOWav8HEtBgMITdcBIAAAAASUVORK5CYII="
+    var addImg = document.createElement('img');
+    addImg.src = addIcon;
 
     let regionPoints = []
     let mouseDownOption = null
@@ -37,6 +40,8 @@
     fabric.Object.prototype.transparentCorners = false;
     fabric.Object.prototype.cornerColor = 'blue';
     fabric.Object.prototype.cornerStyle = 'circle';
+    fabric.Object.prototype.borderScaleFactor = 3//选中后的边框宽度
+    fabric.Object.prototype.borderColor = '#0048ff'
 
     fabricCanvas = new fabric.Canvas('c', {
         selection: false
@@ -104,6 +109,7 @@
         if (opt.selected[0].type == 'polygon') {//circle
 
         }
+        console.info(opt)
     })
     fabricCanvas.on('selection:updated', opt => {
         console.info(opt)
@@ -128,37 +134,67 @@
             ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
             ctx.drawImage(icon, -size / 2, -size / 2, size, size);
             ctx.restore();
-            console.info(arguments)
+            //console.info(arguments)
         }
     }
 
     function deleteObject(eventData, transform) {
-        var target = transform.target;
-        //console.info(target.rid)
-        var canvas = target.canvas;
-        canvas.remove(target);
+        if (confirm("确定删除吗?")) {
+            var target = transform.target;
+            var canvas = target.canvas;
+            canvas.remove(target);
 
-        canvas.getObjects('text').forEach(item => {
-            if (item.rid == target.rid) {
-                canvas.remove(item);
-            }
-        })
-        canvas.getObjects('circle').forEach(item => {
-            if (item.rid == target.rid) {
-                canvas.remove(item);
-            }
-        })
-
-        canvas.requestRenderAll();
+            canvas.getObjects('text').forEach(item => {
+                if (item.rid == target.rid) {
+                    canvas.remove(item);
+                }
+            })
+            canvas.getObjects('circle').forEach(item => {
+                if (item.rid == target.rid) {
+                    canvas.remove(item);
+                }
+            })
+            canvas.requestRenderAll();
+        }
     }
 
-    fabric.Object.prototype.controls.deleteControl = new fabric.Control({
+    fabric.Polygon.prototype.controls = {}
+    //fabric.Polygon.prototype.controls.mtr  = fabric.Object.prototype.controls.mtr
+    fabric.Polygon.prototype.controls.deleteControl = new fabric.Control({
         x: 0.5,
         y: -0.5,
         offsetY: 16,
         cursorStyle: 'pointer',
         mouseUpHandler: deleteObject,
         render: renderIcon(deleteImg),
+        cornerSize: 24
+    });
+
+    fabric.Circle.prototype.controls = {}
+    //fabric.Polygon.prototype.controls.mtr  = fabric.Object.prototype.controls.mtr
+    fabric.Circle.prototype.controls.deleteControl = new fabric.Control({
+        x: 0,
+        y: 0.4,
+        offsetY: 16,
+        cursorStyle: 'pointer',
+        mouseUpHandler: deleteObject,
+        render: renderIcon(deleteImg),
+        cornerSize: 24
+    });
+    fabric.Circle.prototype.controls.leftAddControl = new fabric.Control({
+        x: -1.2,
+        y: 0,
+        cursorStyle: 'pointer',
+        mouseUpHandler: deleteObject,
+        render: renderIcon(addImg),
+        cornerSize: 24
+    });
+    fabric.Circle.prototype.controls.rightAddControl = new fabric.Control({
+        x: 1.2,
+        y: 0,
+        cursorStyle: 'pointer',
+        mouseUpHandler: deleteObject,
+        render: renderIcon(addImg),
         cornerSize: 24
     });
 
@@ -297,20 +333,24 @@
             radius: 8,
             fill: '#fff',
             stroke: '#666',
-            //hasControls: false, // 不显示控制器
-            // lockMovementX: true,
-            // lockMovementY: true,
             lockRotation: true,
             lockScalingX: true,
             lockScalingY: true,
-            transparentCorners: true,
+            //transparentCorners: true,
             cornerStyle: 'rect',
             rid: rid,
             cid: `circle-${regionPoints.length - 1}`, // 自定义属性
-            borderColor: '#0048ff',
             completedPolygon: false//完成多边形
         })
         fabricCanvas.add(cc)
+        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid);
+        cList.forEach((item, index) => {
+            item.setControlsVisibility({
+                leftAddControl: index != 0,
+                rightAddControl: index != cList.length - 1
+            })
+            console.info(index != cList.length - 1)
+        })
         if (regionPoints.length >= 2) {
             addLine(regionPoints[regionPoints.length - 2], p)
         }
