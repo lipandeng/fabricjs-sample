@@ -171,7 +171,7 @@
                     canvas.remove(target);
                     let newPoints = []
                     canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
-                        console.info(item.cid)
+                        //console.info(item.cid)
                         if (item.cid > target.cid) {
                             item.cid -= 1
                         }
@@ -184,37 +184,44 @@
                     canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
                         item.bringToFront()
                     })
+                    initCircleControlVisibility(target.rid, false)
                 } else {
                     canvas.remove(target);
                     //删除tag: 'tempLine'& 重新连线,
                     let newP1 = null, newP2 = null;
-                    fabricCanvas.getObjects('line').forEach(item => {
-                        if (item.tag == 'tempLine') {
-                            if (item.x1 == target.left && item.y1 == target.top) {
-                                //console.info(item)
-                                canvas.remove(item);
-                                newP2 = {
-                                    x: item.x2,
-                                    y: item.y2
-                                }
+                    fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').forEach(item => {
+                        if (item.x1 == target.left && item.y1 == target.top) {
+                            //console.info(item)
+                            canvas.remove(item);
+                            newP2 = {
+                                x: item.x2,
+                                y: item.y2,
+                                index: item.index
                             }
-                            if (item.x2 == target.left && item.y2 == target.top) {
-                                //console.info(item)
-                                canvas.remove(item);
-                                newP1 = {
-                                    x: item.x1,
-                                    y: item.y1
-                                }
+                        }
+                        if (item.x2 == target.left && item.y2 == target.top) {
+                            //console.info(item)
+                            canvas.remove(item);
+                            newP1 = {
+                                x: item.x1,
+                                y: item.y1,
+                                index: item.index
                             }
-
                         }
                     })
                     if (newP1 && newP2) {
-                        addLine(newP1, newP2)
+                        fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index > newP2.index).sort((a, b) => a.index - b.index).forEach(item => {
+                            item.index -= 1
+                        })
+                        addLine(newP1, newP2, newP1.index)
+                    }
+                    if (newP2 != null || newP1 == null) {//删除第一个时重新编号
+                        fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').sort((a, b) => a.index - b.index).forEach(item => {
+                            item.index -= 1
+                        })
                     }
                     // 删除对象的顶点 regionPoints
                     delete regionPoints.splice(target.cid, 1)
-                    console.info(regionPoints.length)
                     if (regionPoints.length < 3) {
                         document.getElementById('btnCompleteRegion').disabled = true
                     }
@@ -225,8 +232,9 @@
                             item.cid -= 1
                         }
                     })
+                    initCircleControlVisibility(target.rid, true)
                 }
-                initCircleControlVisibility(target.rid)
+
                 //console.info(target.completedPolygon, target.cid)
             }
             canvas.requestRenderAll();
@@ -252,11 +260,30 @@
     function addVertex(eventData, transform) {
         var target = transform.target;
         var canvas = target.canvas;
-        console.info(target.cid, target.rid, transform.corner)
+        console.info(target.cid, target.rid, transform.corner, target.completedPolygon)
         if (transform.corner == 'forwardAddControl') {
+            if (target.completedPolygon) {
 
+            } else {
+                //两点之间添加新点
+                let cp = calcCenterPoint(regionPoints[target.cid - 1], regionPoints[target.cid])
+                addCircle(cp, target.rid, false, target.cid)
+            }
         } else if (transform.corner == 'backwardAddControl') {
+            if (target.completedPolygon) {
 
+            } else {
+                //两点之间添加新点
+                let cp = calcCenterPoint(regionPoints[target.cid], regionPoints[target.cid + 1])
+                addCircle(cp, target.rid, false, target.cid + 1)
+            }
+        }
+    }
+
+    function calcCenterPoint(p1, p2) {
+        return {
+            x: parseInt((p1.x + p2.x) / 2),
+            y: parseInt((p1.y + p2.y) / 2) + 20
         }
     }
 
@@ -307,7 +334,7 @@
                 target.controls.forwardAddControl.y = newCoord.y
 
             } else {//创建中的多边形
-                let tempLineList = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine')
+                let tempLineList = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').sort((a, b) => a.index - b.index)
                 regionPoints[index] = {
                     x: target.left,
                     y: target.top
@@ -445,7 +472,21 @@
         fabricCanvas.add(text)
     }
 
-    function addCircle(p) {
+    function addCircle(p, regionId, completedPolygon, spliceIndex) {
+        let cid;
+        if (spliceIndex != null) {
+            console.info(regionPoints)
+            regionPoints.splice(spliceIndex, 0, p)
+            cid = spliceIndex
+            //纠正后续cid
+            fabricCanvas.getObjects('circle').filter(item => item.rid == regionId && item.cid >= spliceIndex).sort((a, b) => a.cid - b.cid).forEach(item => {
+                item.cid += 1
+            });
+            console.info(regionPoints)
+        } else {
+            regionPoints.push(p)
+            cid = regionPoints.length - 1
+        }
         let cc = new fabric.Circle({
             left: p.x,
             top: p.y,
@@ -458,10 +499,10 @@
             lockScalingY: true,
             //transparentCorners: true,
             cornerStyle: 'rect',
-            rid: rid,
+            rid: regionId,
             tag: 'polygon-vertex',
-            cid: regionPoints.length - 1, // 自定义属性
-            completedPolygon: false//完成多边形
+            cid: cid,
+            completedPolygon: completedPolygon//完成多边形
         })
         cc.controls = {
             deleteControl: new fabric.Control({
@@ -491,20 +532,32 @@
             })
         }
         fabricCanvas.add(cc)
-        initCircleControlVisibility(rid)
+        initCircleControlVisibility(regionId, true)
+        if (regionPoints.length >= 3) {
+            document.getElementById('btnCompleteRegion').disabled = false
+        }
         if (regionPoints.length >= 2) {
-            addLine(regionPoints[regionPoints.length - 2], p)
+            if (spliceIndex != null) {
+                //删除旧templine线
+
+                //添加新线
+
+            } else {
+                addLine(regionPoints[regionPoints.length - 2], p, null)
+            }
         }
     }
 
     //初始化圆圈contorl的显示隐藏
-    function initCircleControlVisibility(regionId) {
+    function initCircleControlVisibility(regionId, checkVisiblity) {
         let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == regionId).sort((a, b) => a.cid - b.cid);
         cList.forEach((item, index) => {
-            item.setControlsVisibility({
-                forwardAddControl: index != 0,
-                backwardAddControl: index != cList.length - 1
-            })
+            if (checkVisiblity) {
+                item.setControlsVisibility({
+                    forwardAddControl: index != 0,
+                    backwardAddControl: index != cList.length - 1
+                })
+            }
             if (index != cList.length - 1) {//向后
                 let newCoord = calcAddControlCoord(cList[index + 1], cList[index])
                 item.controls.backwardAddControl.y = newCoord.y
@@ -519,6 +572,7 @@
     }
 
     function calcAddControlCoord(p1, p2) {
+        console.info(p1, p2)
         let diffX, diffY;
         if (p1.x) {
             diffX = p1.x - p2.x
@@ -543,13 +597,17 @@
         return {x, y}
     }
 
-    function addLine(p1, p2) {
+    function addLine(p1, p2, index) {
+        if (index == null) {
+            index = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').length
+        }
         let _line = new fabric.Line([p1.x, p1.y,
             p2.x, p2.y
         ], {
             stroke: 'black',
             selectable: false,
             tag: 'tempLine',
+            index: index,
             evented: false,
         })
         fabricCanvas.add(_line)
@@ -559,11 +617,7 @@
         let point = fabricCanvas.getPointer(opt.e)
         //console.info(point, point.x, point.y)
         if (regionAdding) {
-            regionPoints.push(point)
-            addCircle(point)
-            if (regionPoints.length >= 3) {
-                document.getElementById('btnCompleteRegion').disabled = false
-            }
+            addCircle(point, rid, false, null)
         }
     }
 
