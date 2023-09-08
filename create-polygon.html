@@ -292,9 +292,31 @@
     function addVertex(eventData, transform) {
         var target = transform.target;
         var canvas = target.canvas;
-        //console.info(target.cid, target.rid, transform.corner, target.completedPolygon)
+        console.info(target.cid, target.rid, transform.corner)
         if (transform.corner == 'forwardAddControl') {
             if (target.completedPolygon) {
+
+                //删除原有的多边形
+                let orgPolygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
+                let cp = calcCenterPoint(orgPolygon.points[target.cid == 0 ? orgPolygon.points.length - 1 : target.cid - 1], orgPolygon.points[target.cid])
+                canvas.remove(orgPolygon)
+                let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
+                canvas.remove(orgText)
+
+                addCircle(cp, target.rid, true, target.cid)
+
+                let newPoints = []
+                canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
+                    newPoints.push({
+                        x: item.left,
+                        y: item.top
+                    })
+                })
+                addPolygonToCanvas(newPoints, target.rid)
+                canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
+                    item.bringToFront()
+                })
+                initCircleControlVisibility(target.rid, false)
 
             } else {
                 //两点之间添加新点
@@ -303,7 +325,27 @@
             }
         } else if (transform.corner == 'backwardAddControl') {
             if (target.completedPolygon) {
+                //删除原有的多边形
+                let orgPolygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
+                let cp = calcCenterPoint(orgPolygon.points[target.cid == orgPolygon.points.length - 1 ? 0 : target.cid + 1], orgPolygon.points[target.cid])
+                canvas.remove(orgPolygon)
+                let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
+                canvas.remove(orgText)
 
+                addCircle(cp, target.rid, true, target.cid + 1)
+
+                let newPoints = []
+                canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
+                    newPoints.push({
+                        x: item.left,
+                        y: item.top
+                    })
+                })
+                addPolygonToCanvas(newPoints, target.rid)
+                canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
+                    item.bringToFront()
+                })
+                initCircleControlVisibility(target.rid, false)
             } else {
                 //两点之间添加新点
                 let cp = calcCenterPoint(regionPoints[target.cid], regionPoints[target.cid + 1])
@@ -507,8 +549,9 @@
     function addCircle(p, regionId, completedPolygon, spliceIndex) {
         let cid;
         if (spliceIndex != null) {
-            //console.info(regionPoints)
-            regionPoints.splice(spliceIndex, 0, p)
+            if (!completedPolygon) {
+                regionPoints.splice(spliceIndex, 0, p)
+            }
             cid = spliceIndex
             //纠正后续cid
             fabricCanvas.getObjects('circle').filter(item => item.rid == regionId && item.cid >= spliceIndex).sort((a, b) => a.cid - b.cid).forEach(item => {
@@ -564,28 +607,35 @@
             })
         }
         fabricCanvas.add(cc)
-        initCircleControlVisibility(regionId, true)
-        if (regionPoints.length >= 3) {
-            document.getElementById('btnCompleteRegion').disabled = false
-        }
-        if (regionPoints.length >= 2) {
-            if (spliceIndex != null) {
-                //删除旧templine线
-                fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index == spliceIndex - 1).forEach(item => {
-                    fabricCanvas.remove(item)
-                })
-
-                //重新排序
-                fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index >= spliceIndex).sort((a, b) => a.index - b.index).forEach(item => {
-                    item.index++
-                })
-                //添加新线
-                addLine(regionPoints[spliceIndex - 1], regionPoints[spliceIndex], spliceIndex - 1)
-                addLine(regionPoints[spliceIndex], regionPoints[spliceIndex + 1], spliceIndex)
-
-            } else {
-                addLine(regionPoints[regionPoints.length - 2], p, null)
+        if (!completedPolygon) {
+            initCircleControlVisibility(regionId, true)
+            if (regionPoints.length >= 3) {
+                document.getElementById('btnCompleteRegion').disabled = false
             }
+            if (regionPoints.length >= 2) {
+                if (spliceIndex != null) {
+                    //删除旧templine线
+                    fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index == spliceIndex - 1).forEach(item => {
+                        fabricCanvas.remove(item)
+                    })
+
+                    //重新排序
+                    fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index >= spliceIndex).sort((a, b) => a.index - b.index).forEach(item => {
+                        item.index++
+                    })
+                    //添加新线
+                    addLine(regionPoints[spliceIndex - 1], regionPoints[spliceIndex], spliceIndex - 1)
+                    addLine(regionPoints[spliceIndex], regionPoints[spliceIndex + 1], spliceIndex)
+
+                } else {
+                    addLine(regionPoints[regionPoints.length - 2], p, null)
+                }
+            }
+        } else {
+            cc.setControlsVisibility({
+                forwardAddControl: true,
+                backwardAddControl: true
+            })
         }
     }
 
