@@ -111,6 +111,14 @@
         if (opt.selected[0].type == 'polygon') {//circle
 
         }
+
+        if (opt.selected[0].type == 'circle') {//circle 更新control x,y
+            console.info(opt.selected[0])
+            if (opt.selected[0].type == 'circle' && opt.selected[0].tag == 'polygon-vertex') {//circle 更新control x,y
+                //console.info(opt.selected[0])
+                setAddControlCoord(opt.selected[0])
+            }
+        }
         //console.info(opt)
     })
     fabricCanvas.on('selection:updated', opt => {
@@ -121,12 +129,36 @@
         if (opt.deselected[0].type == 'polygon') {//circle
 
         }
+
+        if (opt.selected[0].type == 'circle' && opt.selected[0].tag == 'polygon-vertex') {//circle 更新control x,y
+            //console.info(opt.selected[0])
+            setAddControlCoord(opt.selected[0])
+        }
     })
     fabricCanvas.on('selection:cleared', opt => {
         if (opt.deselected && opt.deselected[0].type == 'polygon') {//circle
 
         }
     })
+
+    function setAddControlCoord(target) {
+        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid);
+
+        if (target._controlsVisibility.backwardAddControl) {
+            let index1 = target.cid == cList.length - 1 ? 0 : target.cid + 1
+            let newCoord = calcAddControlCoord(cList[index1], cList[target.cid])
+
+            target.controls.backwardAddControl.x = newCoord.x
+            target.controls.backwardAddControl.y = newCoord.y
+        }
+        if (target._controlsVisibility.forwardAddControl) {
+            let index1 = target.cid == 0 ? cList.length - 1 : target.cid - 1
+            let newCoord = calcAddControlCoord(cList[index1], cList[target.cid])
+
+            target.controls.forwardAddControl.x = newCoord.x
+            target.controls.forwardAddControl.y = newCoord.y
+        }
+    }
 
     function renderIcon(icon) {
         return function renderIcon(ctx, left, top, styleOverride, fabricObject) {
@@ -572,7 +604,7 @@
     }
 
     function calcAddControlCoord(p1, p2) {
-        console.info(p1, p2)
+        //console.info(p1, p2)
         let diffX, diffY;
         if (p1.x) {
             diffX = p1.x - p2.x
