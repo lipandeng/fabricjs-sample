@@ -35,6 +35,7 @@
     let mouseDownOption = null
     let regionAdding = false
     let rid = `region-${new Date().getTime()}`;
+    let selectionClearedTime = new Date()
 
     fabric.Object.prototype.originX = fabric.Object.prototype.originY = 'center';
     fabric.Object.prototype.transparentCorners = false;
@@ -51,13 +52,14 @@
         mouseDownOption = opt
     })
     fabricCanvas.on('mouse:up', opt => {
+        //console.info(opt)
         if (mouseDownOption.target == null) { //未选中时再触发
             if (opt.pointer.x == mouseDownOption.pointer.x &&
                 opt.pointer.y == mouseDownOption.pointer.y) {
-                canvasMouseDown(opt)
+                if (new Date().getTime() - selectionClearedTime.getTime() >= 100) {//处理取消选中
+                    canvasMouseDown(opt)
+                }
             }
-        } else {
-
         }
         mouseDownOption = null
     })
@@ -112,12 +114,9 @@
 
         }
 
-        if (opt.selected[0].type == 'circle') {//circle 更新control x,y
-            console.info(opt.selected[0])
-            if (opt.selected[0].type == 'circle' && opt.selected[0].tag == 'polygon-vertex') {//circle 更新control x,y
-                //console.info(opt.selected[0])
-                setAddControlCoord(opt.selected[0])
-            }
+        if (opt.selected[0].type == 'circle' && opt.selected[0].tag == 'polygon-vertex') {//circle 更新control x,y
+            //console.info(opt.selected[0])
+            setAddControlCoord(opt.selected[0])
         }
         //console.info(opt)
     })
@@ -139,6 +138,7 @@
         if (opt.deselected && opt.deselected[0].type == 'polygon') {//circle
 
         }
+        selectionClearedTime = new Date()
     })
 
     function setAddControlCoord(target) {
@@ -247,7 +247,7 @@
                         })
                         addLine(newP1, newP2, newP1.index)
                     }
-                    if (newP2 != null || newP1 == null) {//删除第一个时重新编号
+                    if (newP2 != null && newP1 == null) {//删除第一个时重新编号
                         fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').sort((a, b) => a.index - b.index).forEach(item => {
                             item.index -= 1
                         })
@@ -292,7 +292,7 @@
     function addVertex(eventData, transform) {
         var target = transform.target;
         var canvas = target.canvas;
-        console.info(target.cid, target.rid, transform.corner, target.completedPolygon)
+        //console.info(target.cid, target.rid, transform.corner, target.completedPolygon)
         if (transform.corner == 'forwardAddControl') {
             if (target.completedPolygon) {
 
@@ -507,14 +507,14 @@
     function addCircle(p, regionId, completedPolygon, spliceIndex) {
         let cid;
         if (spliceIndex != null) {
-            console.info(regionPoints)
+            //console.info(regionPoints)
             regionPoints.splice(spliceIndex, 0, p)
             cid = spliceIndex
             //纠正后续cid
             fabricCanvas.getObjects('circle').filter(item => item.rid == regionId && item.cid >= spliceIndex).sort((a, b) => a.cid - b.cid).forEach(item => {
                 item.cid += 1
             });
-            console.info(regionPoints)
+            //console.info(regionPoints)
         } else {
             regionPoints.push(p)
             cid = regionPoints.length - 1
@@ -571,8 +571,17 @@
         if (regionPoints.length >= 2) {
             if (spliceIndex != null) {
                 //删除旧templine线
+                fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index == spliceIndex - 1).forEach(item => {
+                    fabricCanvas.remove(item)
+                })
 
+                //重新排序
+                fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index >= spliceIndex).sort((a, b) => a.index - b.index).forEach(item => {
+                    item.index++
+                })
                 //添加新线
+                addLine(regionPoints[spliceIndex - 1], regionPoints[spliceIndex], spliceIndex - 1)
+                addLine(regionPoints[spliceIndex], regionPoints[spliceIndex + 1], spliceIndex)
 
             } else {
                 addLine(regionPoints[regionPoints.length - 2], p, null)
