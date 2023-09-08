@@ -101,6 +101,8 @@
             console.info(repair)
             obj.setCoords()
         }
+        //console.info(obj, obj._controlsVisibility)
+
         adjustingPolygonPoint(obj, true)
     })
 
@@ -189,7 +191,7 @@
                     fabricCanvas.getObjects('line').forEach(item => {
                         if (item.tag == 'tempLine') {
                             if (item.x1 == target.left && item.y1 == target.top) {
-                                console.info(item)
+                                //console.info(item)
                                 canvas.remove(item);
                                 newP2 = {
                                     x: item.x2,
@@ -197,7 +199,7 @@
                                 }
                             }
                             if (item.x2 == target.left && item.y2 == target.top) {
-                                console.info(item)
+                                //console.info(item)
                                 canvas.remove(item);
                                 newP1 = {
                                     x: item.x1,
@@ -223,8 +225,8 @@
                             item.cid -= 1
                         }
                     })
-
                 }
+                initCircleControlVisibility(target.rid)
                 //console.info(target.completedPolygon, target.cid)
             }
             canvas.requestRenderAll();
@@ -294,6 +296,16 @@
                 if (setPD) {
                     polygon._setPositionDimensions({})
                 }
+                let newCoord = calcAddControlCoord(points[index == points.length - 1 ? 0 : index + 1], points[index])
+                //console.info(newCoord)
+                target.controls.backwardAddControl.x = newCoord.x
+                target.controls.backwardAddControl.y = newCoord.y
+
+                newCoord = calcAddControlCoord(points[index == 0 ? points.length - 1 : index - 1], points[index])
+                //console.info(newCoord)
+                target.controls.forwardAddControl.x = newCoord.x
+                target.controls.forwardAddControl.y = newCoord.y
+
             } else {//创建中的多边形
                 let tempLineList = fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine')
                 regionPoints[index] = {
@@ -314,6 +326,19 @@
                             y1: target.top
                         }).setCoords()
                     }
+                }
+                //
+                if (target._controlsVisibility.backwardAddControl) {
+                    let newCoord = calcAddControlCoord(regionPoints[index + 1], regionPoints[index])
+                    //console.info(newCoord)
+                    target.controls.backwardAddControl.x = newCoord.x
+                    target.controls.backwardAddControl.y = newCoord.y
+                }
+                if (target._controlsVisibility.forwardAddControl) {
+                    let newCoord = calcAddControlCoord(regionPoints[index - 1], regionPoints[index])
+                    //console.info(newCoord)
+                    target.controls.forwardAddControl.x = newCoord.x
+                    target.controls.forwardAddControl.y = newCoord.y
                 }
             }
         }
@@ -355,17 +380,30 @@
         //添加polyline
         addPolygonToCanvas(regionPoints, rid)
 
-        fabricCanvas.getObjects('circle').forEach(item => {
-            if (item.rid == rid) {
-                item.set({
-                    completedPolygon: true,//完成多边形
-                })
+        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid).sort((a, b) => a.cid - b.cid);
+
+        cList.forEach(item => {
+            item.set({
+                completedPolygon: true,//完成多边形
+            })
+            if (!item._controlsVisibility.forwardAddControl) {
                 item.setControlsVisibility({
-                    forwardAddControl: true,
+                    forwardAddControl: true
+                })
+                let newCoord = calcAddControlCoord(cList[item.cid == 0 ? (cList.length - 1) : (item.cid - 1)], cList[item.cid])
+                //console.info(newCoord)
+                item.controls.forwardAddControl.y = newCoord.y
+                item.controls.forwardAddControl.x = newCoord.x
+            }
+            if (!item._controlsVisibility.backwardAddControl) {
+                item.setControlsVisibility({
                     backwardAddControl: true
                 })
-                item.bringToFront()
+                let newCoord = calcAddControlCoord(cList[item.cid == cList.length - 1 ? 0 : item.cid + 1], cList[item.cid])
+                item.controls.backwardAddControl.y = newCoord.y
+                item.controls.backwardAddControl.x = newCoord.x
             }
+            item.bringToFront()
         })
         regionPoints = []
         rid = `region-${new Date().getTime()}`
@@ -453,59 +491,56 @@
             })
         }
         fabricCanvas.add(cc)
-        initCircleControlVisibility()
+        initCircleControlVisibility(rid)
         if (regionPoints.length >= 2) {
             addLine(regionPoints[regionPoints.length - 2], p)
         }
     }
 
     //初始化圆圈contorl的显示隐藏
-    function initCircleControlVisibility() {
-        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid).sort((a, b) => a.cid - b.cid);
+    function initCircleControlVisibility(regionId) {
+        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == regionId).sort((a, b) => a.cid - b.cid);
         cList.forEach((item, index) => {
             item.setControlsVisibility({
                 forwardAddControl: index != 0,
                 backwardAddControl: index != cList.length - 1
             })
             if (index != cList.length - 1) {//向后
-                let diffX = cList[index + 1].left - cList[index].left
-                let diffY = cList[index + 1].top - cList[index].top
-                let _tan = Math.atan(diffX / diffY)
-                let gamma = Math.round(Math.abs(_tan) * 180 / Math.PI)
-                let sin = Math.sin(gamma * Math.PI / 180)
-                let cos = Math.cos(gamma * Math.PI / 180)
-                const c = 2.5
-                let x = parseInt(c * sin * 10) / 10, y = parseInt(c * cos * 10) / 10
-                console.info(gamma, sin, x, y)
-                if (diffX < 0) {
-                    x = -x
-                }
-                if (diffY < 0) {
-                    y = -y
-                }
-                item.controls.backwardAddControl.y = y
-                item.controls.backwardAddControl.x = x
+                let newCoord = calcAddControlCoord(cList[index + 1], cList[index])
+                item.controls.backwardAddControl.y = newCoord.y
+                item.controls.backwardAddControl.x = newCoord.x
             }
             if (index > 0) {//向前
-                let diffX = cList[index].left - cList[index - 1].left
-                let diffY = cList[index].top - cList[index - 1].top
-                let _tan = Math.atan(diffX / diffY)
-                let gamma = Math.round(Math.abs(_tan) * 180 / Math.PI)
-                let sin = Math.sin(gamma * Math.PI / 180)
-                let cos = Math.cos(gamma * Math.PI / 180)
-                const c = 2.5
-                let x = parseInt(c * sin * 10) / 10, y = parseInt(c * cos * 10) / 10
-                console.info(gamma, sin, x, y)
-                if (diffX > 0) {
-                    x = -x
-                }
-                if (diffY > 0) {
-                    y = -y
-                }
-                item.controls.forwardAddControl.y = y
-                item.controls.forwardAddControl.x = x
+                let newCoord = calcAddControlCoord(cList[index - 1], cList[index])
+                item.controls.forwardAddControl.y = newCoord.y
+                item.controls.forwardAddControl.x = newCoord.x
             }
         })
+    }
+
+    function calcAddControlCoord(p1, p2) {
+        let diffX, diffY;
+        if (p1.x) {
+            diffX = p1.x - p2.x
+            diffY = p1.y - p2.y
+        } else {
+            diffX = p1.left - p2.left
+            diffY = p1.top - p2.top
+        }
+        let _tan = Math.atan(diffX / diffY)
+        let gamma = Math.round(Math.abs(_tan) * 180 / Math.PI)
+        let sin = Math.sin(gamma * Math.PI / 180)
+        let cos = Math.cos(gamma * Math.PI / 180)
+        const c = 2.5
+        let x = parseInt(c * sin * 10) / 10, y = parseInt(c * cos * 10) / 10
+        //console.info(gamma, sin, x, y)
+        if (diffX < 0) {
+            x = -x
+        }
+        if (diffY < 0) {
+            y = -y
+        }
+        return {x, y}
     }
 
     function addLine(p1, p2) {
