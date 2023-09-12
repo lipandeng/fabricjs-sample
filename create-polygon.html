@@ -68,6 +68,21 @@
         // 当前移动的元素
         //let target = e.target
         let obj = opt.target
+
+        if (obj.type == 'polygon') {
+            //console.info(obj.points, obj.calcTransformMatrix())
+            var matrix = obj.calcTransformMatrix();
+            var transformedPoints = obj.points
+                .map(function (p) {
+                    return new fabric.Point(
+                        p.x - obj.pathOffset.x,
+                        p.y - obj.pathOffset.y);
+                })
+                .map(function (p) {
+                    return fabric.util.transformPoint(p, matrix);
+                });
+            console.info(transformedPoints,obj.points)
+        }
         let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
 
         let repair = false
@@ -510,8 +525,8 @@
                 //selectable: false, // 禁止选中
                 //evented: false, // 当设置为“false”时，对象不能成为事件的目标。所有事件都会通过它传播。
                 rid: regionId,
-                lockMovementX: true,
-                lockMovementY: true,
+                // lockMovementX: true,
+                // lockMovementY: true,
                 lockRotation: true,
                 lockScalingX: true,
                 lockScalingY: true,
