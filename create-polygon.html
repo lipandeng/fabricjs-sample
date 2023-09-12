@@ -293,64 +293,51 @@
         var target = transform.target;
         var canvas = target.canvas;
         console.info(target.cid, target.rid, transform.corner)
+
+
+        let p1, index, orgPolygon;
+        if (target.completedPolygon) {
+            orgPolygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
+        }
         if (transform.corner == 'forwardAddControl') {
-            if (target.completedPolygon) {
-
-                //删除原有的多边形
-                let orgPolygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
-                let cp = calcCenterPoint(orgPolygon.points[target.cid == 0 ? orgPolygon.points.length - 1 : target.cid - 1], orgPolygon.points[target.cid])
-                canvas.remove(orgPolygon)
-                let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
-                canvas.remove(orgText)
-
-                addCircle(cp, target.rid, true, target.cid)
-
-                let newPoints = []
-                canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
-                    newPoints.push({
-                        x: item.left,
-                        y: item.top
-                    })
-                })
-                addPolygonToCanvas(newPoints, target.rid)
-                canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
-                    item.bringToFront()
-                })
-                initCircleControlVisibility(target.rid, false)
-
+            if (orgPolygon) {
+                p1 = orgPolygon.points[target.cid == 0 ? orgPolygon.points.length - 1 : target.cid - 1]
             } else {
-                //两点之间添加新点
-                let cp = calcCenterPoint(regionPoints[target.cid - 1], regionPoints[target.cid])
-                addCircle(cp, target.rid, false, target.cid)
+                p1 = regionPoints[target.cid - 1]
             }
+            index = target.cid
         } else if (transform.corner == 'backwardAddControl') {
-            if (target.completedPolygon) {
-                //删除原有的多边形
-                let orgPolygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
-                let cp = calcCenterPoint(orgPolygon.points[target.cid == orgPolygon.points.length - 1 ? 0 : target.cid + 1], orgPolygon.points[target.cid])
-                canvas.remove(orgPolygon)
-                let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
-                canvas.remove(orgText)
-
-                addCircle(cp, target.rid, true, target.cid + 1)
-
-                let newPoints = []
-                canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
-                    newPoints.push({
-                        x: item.left,
-                        y: item.top
-                    })
-                })
-                addPolygonToCanvas(newPoints, target.rid)
-                canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
-                    item.bringToFront()
-                })
-                initCircleControlVisibility(target.rid, false)
+            if (orgPolygon) {
+                p1 = orgPolygon.points[target.cid == orgPolygon.points.length - 1 ? 0 : target.cid + 1]
             } else {
-                //两点之间添加新点
-                let cp = calcCenterPoint(regionPoints[target.cid], regionPoints[target.cid + 1])
-                addCircle(cp, target.rid, false, target.cid + 1)
+                p1 = regionPoints[target.cid + 1]
             }
+            index = target.cid + 1
+        }
+        if (target.completedPolygon) {
+            //删除原有的多边形
+            let cp = calcCenterPoint(p1, orgPolygon.points[target.cid])
+            canvas.remove(orgPolygon)
+            let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
+            canvas.remove(orgText)
+
+            addCircle(cp, target.rid, true, index)
+
+            let newPoints = []
+            canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
+                newPoints.push({
+                    x: item.left,
+                    y: item.top
+                })
+            })
+            addPolygonToCanvas(newPoints, target.rid)
+            canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
+                item.bringToFront()
+            })
+            initCircleControlVisibility(target.rid, false)
+        } else {
+            let cp = calcCenterPoint(p1, regionPoints[target.cid])
+            addCircle(cp, target.rid, false, index)
         }
     }
 
