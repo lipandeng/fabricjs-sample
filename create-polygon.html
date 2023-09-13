@@ -30,6 +30,7 @@
     var addIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAuNJREFUWEfNlz9oE3EUx7/vYtNWi7pIUEQURwe1TVJ0sR1EEdtchnaw16KLioI66OBkRXBRcNL6DwRztcUOl1apBQcLItVcqlCok6CgRDQuWhtNSO7JVZPeJWnvlwQSb37v/T6/7/vze0eo8Uc1Ph/CADsOa2vdabQxSXvA7AfgIcDDIAJzHMRxgHSSpCeZhsbn07f3fhe5nCPAtq6H7pX17lMATgPYKBIUQIzBdxiNt6bV/Z+X81kWwHtI85MkDQDcLHhwvlmMiC5FQoGbS/kvCeDvGzvIhvGozINtbgy+GFWD/cViFQXw9o6dITauORw+aQZ2MX3NEHcT6MKyUktSR+R+5+N8mwIAv6LJDNKcbs7g9qganDTtvIrWRqBnjj4Gt0YfBCNWOxvA34KrnxLJua7KNl+fEmYnAIBeJ5LJXbMj3amsbX6QswCuOAcCygNYiHxOV+WrBQCtPeOrDUrNirZaBQCf0nXu5jf3DsRNiJwC/t7wPmZMiNzetKkAAGCc1AflGzYAX492GUTnqwIATOqq3G4HUMIvAOyuEgASyVS9WYy5FPiU8DsAWy0AC32ebTVRsHy7FmViPeHXsYI5kcYmfVj+uFgDSniOgaZsAGufl3t41q/YnCAiXyQUiFoUGP0J8KpqAYAlvz7YqS8C9ITfg7C5WilwpXnLy+HgB4sCWgQgn6jcFbUhgCT9aJoJ9c1bi/A6gBPVAGBgJqrK2+2DqMTnt0IFcuM4p0DL0adrpMT8WwAbRFSoACAmZaj51VDgi02Bf89qv9O7noUrFyB/ObG9hubQkPA7KqJCmQAxAw1e655YuJD0jh5n5gGnNJSzkBBRdyQUGFlyIbFMLpFUlLSSAaToamAw/2L/51KaU6KWa3kWoqY/JtZ87Twyvm5FKtUFQheAtqJFSphig+6yIY1ND3V8cyrkgjkg4mDaLKjicnuojjxsELkymXiibi5uznbRGFk7x3/DUgOWav8HEtBgMITdcBIAAAAASUVORK5CYII="
     var addImg = document.createElement('img');
     addImg.src = addIcon;
+    const CIRCLE_RADIUS = 8
 
     let regionPoints = []
     let mouseDownOption = null
@@ -72,32 +73,39 @@
 
         let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
 
+        let paddingLeft = obj.width / 2, paddingTop = obj.height / 2;
+
+        if (obj.type == 'polygon') {
+            paddingLeft += CIRCLE_RADIUS
+            paddingTop += CIRCLE_RADIUS
+        }
+
         let repair = false
         //检查是否移动出画布
-        if (obj.left - obj.width / 2 < canvasBoundaries.tl.x) {
+        if (obj.left - paddingLeft < canvasBoundaries.tl.x) {
             obj.set({
-                left: canvasBoundaries.tl.x + obj.width / 2
+                left: canvasBoundaries.tl.x + paddingLeft
             })
             repair = true
         }
 
-        if (obj.left + obj.width / 2 > canvasBoundaries.br.x) {
+        if (obj.left + paddingLeft > canvasBoundaries.br.x) {
             obj.set({
-                left: canvasBoundaries.br.x - obj.width / 2
+                left: canvasBoundaries.br.x - paddingLeft
             })
             repair = true
         }
 
-        if (obj.top - obj.height / 2 < canvasBoundaries.tl.y) {
+        if (obj.top - paddingTop < canvasBoundaries.tl.y) {
             obj.set({
-                top: canvasBoundaries.tl.y + obj.height / 2
+                top: canvasBoundaries.tl.y + paddingTop
             })
             repair = true
         }
 
-        if (obj.top + obj.height / 2 > canvasBoundaries.br.y) {
+        if (obj.top + paddingTop > canvasBoundaries.br.y) {
             obj.set({
-                top: canvasBoundaries.br.y - obj.height / 2
+                top: canvasBoundaries.br.y - paddingTop
             })
             repair = true
         }
@@ -588,7 +596,7 @@
             left: p.x,
             top: p.y,
             strokeWidth: 3,
-            radius: 8,
+            radius: CIRCLE_RADIUS,
             fill: '#fff',
             stroke: '#666',
             lockRotation: true,
