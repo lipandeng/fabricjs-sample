@@ -69,6 +69,42 @@
         //let target = e.target
         let obj = opt.target
 
+
+        let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
+
+        let repair = false
+        //检查是否移动出画布
+        if (obj.left - obj.width / 2 < canvasBoundaries.tl.x) {
+            obj.set({
+                left: canvasBoundaries.tl.x + obj.width / 2
+            })
+            repair = true
+        }
+
+        if (obj.left + obj.width / 2 > canvasBoundaries.br.x) {
+            obj.set({
+                left: canvasBoundaries.br.x - obj.width / 2
+            })
+            repair = true
+        }
+
+        if (obj.top - obj.height / 2 < canvasBoundaries.tl.y) {
+            obj.set({
+                top: canvasBoundaries.tl.y + obj.height / 2
+            })
+            repair = true
+        }
+
+        if (obj.top + obj.height / 2 > canvasBoundaries.br.y) {
+            obj.set({
+                top: canvasBoundaries.br.y - obj.height / 2
+            })
+            repair = true
+        }
+        if (repair) {
+            //console.info(repair)
+            obj.setCoords()
+        }
         if (obj.type == 'polygon') {
             //console.info(obj.points, obj.calcTransformMatrix())
             var matrix = obj.calcTransformMatrix();
@@ -81,46 +117,30 @@
                 .map(function (p) {
                     return fabric.util.transformPoint(p, matrix);
                 });
-            console.info(transformedPoints,obj.points)
-        }
-        let canvasBoundaries = fabricCanvas.calcViewportBoundaries()
+            //console.info(transformedPoints, obj.points, obj)
 
-        let repair = false
-        //检查是否移动出画布
-        if (obj.left < canvasBoundaries.tl.x) {
-            obj.set({
-                left: canvasBoundaries.tl.x
+            let points = obj.points // 获取多边形的点
+            let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == obj.rid).sort((a, b) => a.cid - b.cid);
+            transformedPoints.forEach((item, index) => {
+                points[index].x = item.x // 修改指定顶点的x坐标
+                points[index].y = item.y // 修改指定定点的y坐标
+                cList[index].set({
+                    left: item.x,
+                    top: item.y
+                }).setCoords()
             })
-            repair = true
-        }
 
-        if (obj.left > canvasBoundaries.br.x) {
-            obj.set({
-                left: canvasBoundaries.br.x
+            let centerPoint = getPolygonCenter(transformedPoints)
+            fabricCanvas.getObjects('text').filter(item => item.rid == obj.rid)[0].set({
+                left: centerPoint.x,
+                top: centerPoint.y
             })
-            repair = true
-        }
-
-        if (obj.top < canvasBoundaries.tl.y) {
-            obj.set({
-                top: canvasBoundaries.tl.y
-            })
-            repair = true
-        }
-
-        if (obj.top > canvasBoundaries.br.y) {
-            obj.set({
-                top: canvasBoundaries.br.y
-            })
-            repair = true
-        }
-        if (repair) {
-            console.info(repair)
-            obj.setCoords()
+            fabricCanvas.renderAll() // 刷新画布
+            obj._setPositionDimensions({})
+        } else if (obj.tag == 'polygon-vertex') {
+            adjustingPolygonPoint(obj, true)
         }
         //console.info(obj, obj._controlsVisibility)
-
-        adjustingPolygonPoint(obj, true)
     })
 
     fabricCanvas.on('selection:created', opt => {
@@ -307,7 +327,7 @@
     function addVertex(eventData, transform) {
         var target = transform.target;
         var canvas = target.canvas;
-        console.info(target.cid, target.rid, transform.corner)
+        //console.info(target.cid, target.rid, transform.corner)
 
 
         let p1, index, orgPolygon;
