@@ -63,6 +63,11 @@
         background-color: #aeffc8;
     }
 
+    .top-group {
+        border: 1px solid #6d966d;
+        margin-bottom: 10px;
+    }
+
     .region-outer {
         margin-top: 20px
     }
@@ -104,6 +109,8 @@
     let mouseDownOption = null
     let regionAdding = false, arcuateLineAdding = false//弓形线;
     const POLYGON_FILL = '#d5ece0', ACTIVE_POLYGON_FILL = '#1eb667'
+    //清洁宽度//60cm = 12px 5cm
+    var cleanWidth = 12
     let rid = `region-${new Date().getTime()}`;
     let selectionClearedTime = new Date()
 
@@ -303,7 +310,7 @@
                         canvas.remove(item);
                     }
                 })
-            } else if (target.type == 'circle') {//删除圆
+            } else if (target.type == 'circle' && target.tag == 'polygon-vertex') {//删除圆
                 if (target.completedPolygon) {//完成多边形
                     //删除原有的多边形
                     let orgPolygon = canvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
@@ -378,6 +385,9 @@
                 }
 
                 //console.info(target.completedPolygon, target.cid)
+            } else if (target.type == 'circle' && target.tag == 'arcuate-point') {//删除圆
+                console.info('dd')
+                canvas.remove(target);
             }
             canvas.requestRenderAll();
         }
@@ -803,40 +813,49 @@
 
     function canvasMouseDown(opt) {
         let point = fabricCanvas.getPointer(opt.e)
-        console.info(point)
+        //console.info(point)
         if (regionAdding && currentActionType == 0) {
             addCircle(point, rid, false, null)
-        } else if (currentActionType == 1) {
+        } else if (currentActionType == 1 && opt.target == null) {
             let activePolygon = checkPolygonActive(point)
             if (activePolygon && arcuateLineAdding) {
                 //添加圆
                 console.info('添加圆')
+                addCleanPathPoint(point, activePolygon.rid)
             }
         }
     }
 
     function checkPolygonActive(point) {
         let activePolygon = null;
-        fabricCanvas.getObjects('polygon').forEach(item => {
-            if (item.containsPoint(point)) {
-                console.info('containsPoint',point)
-                if (!item.active) {
-                    let orgActivePolygon = fabricCanvas.getObjects('polygon').filter(fitem => fitem.active)[0]
-                    if (orgActivePolygon) {
-                        orgActivePolygon.set({
-                            fill: POLYGON_FILL,
-                            active: false
-                        })
-                    }
-                    item.set({
-                        fill: ACTIVE_POLYGON_FILL,
-                        active: true
-                    })
-                    fabricCanvas.renderAll()
-                }
-                activePolygon = item
+        if (arcuateLineAdding) {
+            activePolygon = fabricCanvas.getObjects('polygon').filter(fitem => fitem.active)[0]
+            if (!rayCasting(point, activePolygon.points)) {
+                activePolygon = null
+                alert('请在选中的区域点击')
             }
-        })
+        } else {
+            fabricCanvas.getObjects('polygon').forEach(item => {
+                if (rayCasting(point, item.points)) {
+                    //console.info('containsPoint', point)
+                    if (!item.active) {
+                        let orgActivePolygon = fabricCanvas.getObjects('polygon').filter(fitem => fitem.active)[0]
+                        if (orgActivePolygon) {
+                            orgActivePolygon.set({
+                                fill: POLYGON_FILL,
+                                active: false
+                            })
+                        }
+                        item.set({
+                            fill: ACTIVE_POLYGON_FILL,
+                            active: true
+                        })
+                        fabricCanvas.renderAll()
+                    }
+                    activePolygon = item
+                }
+            })
+        }
         return activePolygon
     }
 
@@ -874,10 +893,20 @@
     }
 
     function regionCateClick(index, obj) {
-        let len = fabricCanvas.getObjects('circle').filter(item => item.tag == 'polygon-vertex' && !item.completedPolygon).length
-        if (len > 0) {
-            alert('请先完成创建中的区域')
-            return
+        if (index == 1) {
+            let len = fabricCanvas.getObjects('circle').filter(item => item.tag == 'polygon-vertex' && !item.completedPolygon).length
+            if (len > 0) {
+                alert('请先完成创建中的区域')
+                return
+            }
+        }
+        if (index == 0) {
+            let len = fabricCanvas.getObjects('circle').filter(item => item.tag == 'arcuate-point').length
+            if (len > 0) {
+                alert('请先完成创建中的弓形线')
+                return
+            }
+            arcuateLineAdding = false
         }
         fabricCanvas.discardActiveObject().renderAll();
 
@@ -921,8 +950,193 @@
             })
             fabricCanvas.renderAll()
         }
+    }
 
+    /**
+     * @description 射线法判断点是否在多边形内部
+     * @param {Object} p 待判断的点，格式：{ x: X坐标, y: Y坐标 }
+     * @param {Array} poly 多边形顶点，数组成员的格式同 p
+     * @return {String} 点 p 和多边形 poly 的几何关系
+     */
+    function rayCasting(p, poly) {
+        var px = p.x,
+            py = p.y,
+            flag = false
 
+        for (var i = 0, l = poly.length, j = l - 1; i < l; j = i, i++) {
+            var sx = poly[i].x,
+                sy = poly[i].y,
+                tx = poly[j].x,
+                ty = poly[j].y
+
+            // 点与多边形顶点重合
+            if ((sx === px && sy === py) || (tx === px && ty === py)) {
+                return false //'on'
+            }
+
+            // 判断线段两端点是否在射线两侧
+            if ((sy < py && ty >= py) || (sy >= py && ty < py)) {
+                // 线段上与射线 Y 坐标相同的点的 X 坐标
+                var x = sx + (py - sy) * (tx - sx) / (ty - sy)
+
+                // 点在多边形的边上
+                if (x === px) {
+                    return false //'on'
+                }
+
+                // 射线穿过多边形的边界
+                if (x > px) {
+                    flag = !flag
+                }
+            }
+        }
+
+        // 射线穿过多边形边界的次数为奇数时点在多边形内
+        return flag //? 'in' : 'out'
+    }
+
+    /**
+     * 添加清洁路径点
+     * @param p
+     * @param regionId
+     */
+    function addCleanPathPoint(p, regionId, index) {
+        let pList = fabricCanvas.getObjects('circle').filter(item => item.tag == 'arcuate-point' && item.rid == regionId)
+        if (pList.length == 2) {
+            //画弓形线
+            arcuateLineAdding = false
+            console.info(arcuateLineAdding, pList, p)
+            let points = []
+            pList.forEach(item => {
+                points.push({
+                    x: item.left,
+                    y: item.top
+                })
+                fabricCanvas.remove(item)
+            })
+            points.push(p)
+            drawArcuateLine(points, regionId)
+            return
+        }
+
+        let cc = new fabric.Circle({
+            left: p.x,
+            top: p.y,
+            strokeWidth: 3,
+            radius: CIRCLE_RADIUS,
+            fill: '#fff',
+            stroke: '#21378d',
+            lockRotation: true,
+            lockScalingX: true,
+            lockScalingY: true,
+            cornerStyle: 'rect',
+            rid: regionId,
+            tag: 'arcuate-point',//弓形线点
+        })
+        cc.controls = {
+            deleteControl: new fabric.Control({
+                x: 0,
+                y: 0.4,
+                offsetY: 16,
+                cursorStyle: 'pointer',
+                mouseUpHandler: deleteObject,
+                render: renderIcon(deleteImg),
+                cornerSize: 24
+            })
+        }
+        fabricCanvas.add(cc)
+
+    }
+
+    /***
+     * 画弓形线
+     * @param pList
+     * @param regionId
+     */
+    function drawArcuateLine(pointList, regionId) {
+        console.info(pointList, regionId)
+        let diffX = pointList[0].x - pointList[1].x, diffY = pointList[0].y - pointList[1].y
+        let c = Math.sqrt(Math.pow(diffX, 2) + Math.pow(diffY, 2))
+        let sina = Math.abs(diffX) / c, sinb = Math.abs(diffY) / c;
+        let stepY = cleanWidth * sina, stepX = cleanWidth * sinb;
+        if (pointList[0].x > pointList[1].x) {
+            if (pointList[0].y > pointList[1].y) {
+                if (pointList[2].y > pointList[0].y) {
+                    stepX = -stepX
+                } else {
+                    stepY = -stepY
+                }
+            } else {
+                if (pointList[2].y < pointList[1].y) {
+                    stepX = -stepX
+                    stepY = -stepY
+                }
+            }
+        } else {
+            if (pointList[0].y > pointList[1].y) {
+                if (pointList[2].y < pointList[0].y) {
+                    stepX = -stepX
+                    stepY = -stepY
+                }
+            } else {
+                if (pointList[2].y > pointList[1].y) {
+                    stepX = -stepX
+                } else {
+                    stepY = -stepY
+                }
+            }
+        }
+        let verticalDis = getDis(pointList[0], pointList[1], pointList[2])
+        console.info(stepX, stepY, verticalDis, verticalDis / cleanWidth)
+        let inflectionCount = Math.round(verticalDis / cleanWidth) + 1//拐线数量
+        let polylinePoint = []
+        for (let i = 0; i < inflectionCount; i++) {
+            if (i % 2 == 0) {
+                polylinePoint.push({
+                    x: Math.round(pointList[0].x + stepX * i),
+                    y: Math.round(pointList[0].y + stepY * i),
+                })
+                polylinePoint.push({
+                    x: Math.round(pointList[1].x + stepX * i),
+                    y: Math.round(pointList[1].y + stepY * i),
+                })
+            } else {
+                polylinePoint.push({
+                    x: Math.round(pointList[1].x + stepX * i),
+                    y: Math.round(pointList[1].y + stepY * i),
+                })
+                polylinePoint.push({
+                    x: Math.round(pointList[0].x + stepX * i),
+                    y: Math.round(pointList[0].y + stepY * i),
+                })
+            }
+        }
+        console.info(polylinePoint)
+        let polyline = new fabric.Polyline(polylinePoint, {
+            fill: 'transparent',
+            stroke: '#6639a6',
+            strokeWidth: 1,
+            strokeDashArray: [10, 7],
+            lockScalingX: true,
+            lockScalingY: true
+        })
+        fabricCanvas.add(polyline)
+
+    }
+
+    //由2点确定的直线，求到第三点的距离
+    function getDis(p1, p2, p3) {
+        var len;
+        //如果p1.x==p2.x 说明是条竖着的线
+        if (p1.x - p2.x == 0) {
+            len = Math.abs(p3.x - p1.x)
+        } else {
+            var A = (p1.y - p2.y) / (p1.x - p2.x)
+            var B = p1.y - A * p1.x
+
+            len = Math.abs((A * p3.x + B - p3.y) / Math.sqrt(A * A + 1))
+        }
+        return len
     }
 
 </script>
