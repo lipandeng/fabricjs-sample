@@ -341,103 +341,127 @@
         }
         if (confirm("确定删除吗?")) {
             if (target.type == 'polygon') {//删除多边形
+                deleteRegion(canvas, target)
+            } else if (target.tag == 'polygon-vertex') {//删除圆
+                deletePolygonVertex(canvas, target)
+            } else if (target.tag == 'arcuate-point') {//删除弓形线的3个圆
                 canvas.remove(target);
-                canvas.getObjects('text').forEach(item => {
-                    if (item.rid == target.rid) {
-                        canvas.remove(item);
-                    }
-                })
-                canvas.getObjects('circle').forEach(item => {
-                    if (item.rid == target.rid) {
-                        canvas.remove(item);
-                    }
-                })
-            } else if (target.type == 'circle' && target.tag == 'polygon-vertex') {//删除圆
-                if (target.completedPolygon) {//完成多边形
-                    //删除原有的多边形
-                    let orgPolygon = canvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
-                    canvas.remove(orgPolygon)
-                    let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
-                    canvas.remove(orgText)
-                    canvas.remove(target);
-                    let newPoints = []
-                    canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
-                        //console.info(item.cid)
-                        if (item.cid > target.cid) {
-                            item.cid -= 1
-                        }
-                        newPoints.push({
-                            x: item.left,
-                            y: item.top
-                        })
-                    })
-                    addPolygonToCanvas(newPoints, target.rid)
-                    canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
-                        item.bringToFront()
-                    })
-                    initCircleControlVisibility(target.rid, false)
-                } else {
-                    canvas.remove(target);
-                    //删除tag: 'tempLine'& 重新连线,
-                    let newP1 = null, newP2 = null;
-                    fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').forEach(item => {
-                        if (item.x1 == target.left && item.y1 == target.top) {
-                            //console.info(item)
-                            canvas.remove(item);
-                            newP2 = {
-                                x: item.x2,
-                                y: item.y2,
-                                index: item.index
-                            }
-                        }
-                        if (item.x2 == target.left && item.y2 == target.top) {
-                            //console.info(item)
-                            canvas.remove(item);
-                            newP1 = {
-                                x: item.x1,
-                                y: item.y1,
-                                index: item.index
-                            }
-                        }
-                    })
-                    if (newP1 && newP2) {
-                        fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index > newP2.index).sort((a, b) => a.index - b.index).forEach(item => {
-                            item.index -= 1
-                        })
-                        addLine(newP1, newP2, newP1.index)
-                    }
-                    if (newP2 != null && newP1 == null) {//删除第一个时重新编号
-                        fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').sort((a, b) => a.index - b.index).forEach(item => {
-                            item.index -= 1
-                        })
-                    }
-                    // 删除对象的顶点 regionPoints
-                    delete regionPoints.splice(target.cid, 1)
-                    if (regionPoints.length < 3) {
-                        document.getElementById('btnCompleteRegion').disabled = true
-                    }
-
-                    //重新对圆cid赋值
-                    canvas.getObjects('circle').forEach(item => {
-                        if (item.rid == target.rid && item.cid > target.cid) {
-                            item.cid -= 1
-                        }
-                    })
-                    initCircleControlVisibility(target.rid, true)
-                }
-
-                //console.info(target.completedPolygon, target.cid)
-            } else if (target.type == 'circle' && target.tag == 'arcuate-point') {//删除圆
-                console.info('dd')
-                canvas.remove(target);
+            } else if (target.tag == 'cleanPath') {//区域
+                deleteCleanPath(canvas, target)
             }
             canvas.requestRenderAll();
         }
     }
 
+    function deleteCleanPath(canvas, target) {
+        //console.info('删除区域组相关')
+        canvas.remove(target);
+        canvas.getObjects('image').filter(item => item.plId == target.id).forEach(item => {
+            canvas.remove(item)
+        })
+    }
+
+    function deletePolygonVertex(canvas, target) {
+        if (target.completedPolygon) {//完成多边形
+            //删除原有的多边形
+            let orgPolygon = canvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
+            canvas.remove(orgPolygon)
+            let orgText = canvas.getObjects('text').filter(item => item.rid == target.rid)[0]
+            canvas.remove(orgText)
+            canvas.remove(target);
+            let newPoints = []
+            canvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid).forEach(item => {
+                //console.info(item.cid)
+                if (item.cid > target.cid) {
+                    item.cid -= 1
+                }
+                newPoints.push({
+                    x: item.left,
+                    y: item.top
+                })
+            })
+            addPolygonToCanvas(newPoints, target.rid)
+            canvas.getObjects('circle').filter(item => item.rid == target.rid).forEach(item => {
+                item.bringToFront()
+            })
+            initCircleControlVisibility(target.rid, false)
+        } else {
+            canvas.remove(target);
+            //删除tag: 'tempLine'& 重新连线,
+            let newP1 = null, newP2 = null;
+            fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').forEach(item => {
+                if (item.x1 == target.left && item.y1 == target.top) {
+                    //console.info(item)
+                    canvas.remove(item);
+                    newP2 = {
+                        x: item.x2,
+                        y: item.y2,
+                        index: item.index
+                    }
+                }
+                if (item.x2 == target.left && item.y2 == target.top) {
+                    //console.info(item)
+                    canvas.remove(item);
+                    newP1 = {
+                        x: item.x1,
+                        y: item.y1,
+                        index: item.index
+                    }
+                }
+            })
+            if (newP1 && newP2) {
+                fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine' && item.index > newP2.index).sort((a, b) => a.index - b.index).forEach(item => {
+                    item.index -= 1
+                })
+                addLine(newP1, newP2, newP1.index)
+            }
+            if (newP2 != null && newP1 == null) {//删除第一个时重新编号
+                fabricCanvas.getObjects('line').filter(item => item.tag == 'tempLine').sort((a, b) => a.index - b.index).forEach(item => {
+                    item.index -= 1
+                })
+            }
+            // 删除对象的顶点 regionPoints
+            delete regionPoints.splice(target.cid, 1)
+            if (regionPoints.length < 3) {
+                document.getElementById('btnCompleteRegion').disabled = true
+            }
+
+            //重新对圆cid赋值
+            canvas.getObjects('circle').forEach(item => {
+                if (item.rid == target.rid && item.cid > target.cid) {
+                    item.cid -= 1
+                }
+            })
+            initCircleControlVisibility(target.rid, true)
+        }
+    }
+
+    function deleteRegion(canvas, target) {
+        canvas.remove(target);
+        canvas.getObjects('text').forEach(item => {
+            if (item.rid == target.rid) {
+                canvas.remove(item);
+            }
+        })
+        canvas.getObjects('circle').forEach(item => {
+            if (item.rid == target.rid) {
+                canvas.remove(item);
+            }
+        })
+    }
+
     fabric.Polygon.prototype.controls = {}
     //fabric.Polygon.prototype.controls.mtr  = fabric.Object.prototype.controls.mtr
     fabric.Polygon.prototype.controls.deleteControl = new fabric.Control({
+        x: 0.5,
+        y: -0.5,
+        offsetY: 16,
+        cursorStyle: 'pointer',
+        mouseUpHandler: deleteObject,
+        render: renderIcon(deleteImg),
+        cornerSize: 24
+    });
+    fabric.Polyline.prototype.controls.deleteControl = new fabric.Control({
         x: 0.5,
         y: -0.5,
         offsetY: 16,
@@ -506,7 +530,7 @@
     function calcCenterPoint(p1, p2) {
         return {
             x: parseInt((p1.x + p2.x) / 2),
-            y: parseInt((p1.y + p2.y) / 2) + 20
+            y: parseInt((p1.y + p2.y) / 2) //+ 20
         }
     }
 
@@ -677,6 +701,7 @@
                 lockRotation: true,
                 lockScalingX: true,
                 lockScalingY: true,
+                opacity: 0.3
             }
         )
         fabricCanvas.add(polygon)
@@ -856,7 +881,7 @@
     function canvasMouseDown(opt) {
         let point = fabricCanvas.getPointer(opt.e)
         //console.info(point)
-        if (regionAdding && currentActionType == 0) {
+        if (regionAdding && currentActionType == 0 && opt.target == null) {
             addCircle(point, rid, false, null)
         } else if (currentActionType == 1 && opt.target == null) {
             let activePolygon = checkPolygonActive(point)
