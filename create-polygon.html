@@ -114,7 +114,7 @@
     let regionAdding = false, arcuateLineAdding = false//弓形线;
     const POLYGON_FILL = '#d5ece0', ACTIVE_POLYGON_FILL = '#9ec6d5'
     //清洁宽度//60cm = 12px 5cm
-    var cleanWidth = 12
+    var cleanWidth = 80 / 5
     let rid = `region-${new Date().getTime()}`;
     let selectionClearedTime = new Date()
 
@@ -225,10 +225,19 @@
             obj._setPositionDimensions({})
         } else if (obj.tag == 'polygon-vertex') {
             adjustingPolygonPoint(obj, true)
+        } else if (obj.tag == 'cleanPath') {
+            setCleanPathImgCoord(obj)
         }
         //console.info(obj, obj._controlsVisibility)
     })
 
+    fabricCanvas.on('object:rotating', function (opt) {
+
+        if (opt.target.tag == 'cleanPath') {
+            setCleanPathImgCoord(opt.target)
+        }
+
+    })
     fabricCanvas.on('selection:created', opt => {
         //console.info(opt.selected[0].type)
         if (opt.selected[0].type == 'polygon') {//circle
@@ -261,6 +270,35 @@
         }
         selectionClearedTime = new Date()
     })
+
+    function setCleanPathImgCoord(obj) {
+        var matrix = obj.calcTransformMatrix();
+        var transformedPoints = obj.points
+            .map(function (p) {
+                return new fabric.Point(
+                    p.x - obj.pathOffset.x,
+                    p.y - obj.pathOffset.y);
+            })
+            .map(function (p) {
+                return fabric.util.transformPoint(p, matrix);
+            });
+        //console.info(transformedPoints)
+        let imgList = fabricCanvas.getObjects('image').filter(item => item.plId == obj.id);
+        //console.info(imgList)
+        imgList.forEach(item => {
+            if (item.imageType == 1) {
+                item.set({
+                    left: transformedPoints[0].x,
+                    top: transformedPoints[0].y
+                })
+            } else if (item.imageType == 2) {
+                item.set({
+                    left: transformedPoints[transformedPoints.length - 1].x,
+                    top: transformedPoints[transformedPoints.length - 1].y
+                })
+            }
+        })
+    }
 
     function setAddControlCoord(target) {
         let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == target.rid).sort((a, b) => a.cid - b.cid);
@@ -824,7 +862,7 @@
             let activePolygon = checkPolygonActive(point)
             if (activePolygon && arcuateLineAdding) {
                 //添加圆
-                console.info('添加圆')
+                //console.info('添加圆')
                 addCleanPathPoint(point, activePolygon.rid)
             }
         }
@@ -952,7 +990,18 @@
                     active: false
                 })
             })
+            fabricCanvas.getObjects('polyline').filter(item => item.tag == 'cleanPath').forEach(item => {
+                item.set({
+                    evented: false
+                })
+            })
             fabricCanvas.renderAll()
+        } else if (index == 1) {
+            fabricCanvas.getObjects('polyline').filter(item => item.tag == 'cleanPath').forEach(item => {
+                item.set({
+                    evented: true
+                })
+            })
         }
     }
 
@@ -1009,7 +1058,7 @@
         if (pList.length == 2) {
             //画弓形线
             arcuateLineAdding = false
-            console.info(arcuateLineAdding, pList, p)
+            //console.info(arcuateLineAdding, pList, p)
             let points = []
             pList.forEach(item => {
                 points.push({
@@ -1058,7 +1107,7 @@
      * @param regionId
      */
     function drawArcuateLine(pointList, regionId) {
-        console.info(pointList, regionId)
+        //console.info(pointList, regionId)
         let diffX = pointList[0].x - pointList[1].x, diffY = pointList[0].y - pointList[1].y
         let c = Math.sqrt(Math.pow(diffX, 2) + Math.pow(diffY, 2))
         let sina = Math.abs(diffX) / c, sinb = Math.abs(diffY) / c;
@@ -1115,38 +1164,40 @@
                 })
             }
         }
-        console.info(polylinePoint)
+        //console.info(polylinePoint)
+        let ts = new Date().getTime().toString()
         let polyline = new fabric.Polyline(polylinePoint, {
             fill: 'transparent',
             stroke: '#6639a6',
             strokeWidth: 1,
             strokeDashArray: [10, 7],
             lockScalingX: true,
-            lockScalingY: true
+            lockScalingY: true,
+            tag: 'cleanPath',
+            id: ts
         })
         fabricCanvas.add(polyline)
 
         const callback = (image, isError) => {
+            //console.info(image)
+            let left, top;
+            if (image.imageType == 1) {
+                left = polylinePoint[0].x - 5
+                top = polylinePoint[0].y - 5
+            } else if (image.imageType == 2) {
+                left = polylinePoint[polylinePoint.length - 1].x - 5
+                top = polylinePoint[polylinePoint.length - 1].y - 5
+            }
             image.scale(0.3)
             image.set({
-                left: polylinePoint[0].x - 5,
-                top: polylinePoint[0].y - 5,
+                left: left,
+                top: top,
                 evented: false,
             })
             fabricCanvas.add(image);
         };
-        fabric.Image.fromURL(starImg, callback)
-
-        const callback2 = (image, isError) => {
-            image.scale(0.3)
-            image.set({
-                left: polylinePoint[polylinePoint.length-1].x - 5,
-                top: polylinePoint[polylinePoint.length-1].y - 5,
-                evented: false,
-            })
-            fabricCanvas.add(image);
-        };
-        fabric.Image.fromURL(endImg, callback2)
+        fabric.Image.fromURL(starImg, callback, {imageType: 1, plId: ts})
+        fabric.Image.fromURL(endImg, callback, {imageType: 2, plId: ts})
     }
 
     //由2点确定的直线，求到第三点的距离
