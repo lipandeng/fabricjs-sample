@@ -1,0 +1,57 @@
+button {
+    margin: 10px 20px;
+}
+
+.left-cate {
+    padding-top: 20px;
+    width: 100px;
+    border: 1px solid greenyellow;
+    margin-right: 10px;
+}
+
+.dis-none {
+    display: none;
+}
+
+.left-cate div {
+    height: 50px;
+    line-height: 50px;
+    padding-left: 10px;
+    cursor: pointer;
+    border: 1px solid #31c5af;
+}
+
+.left-cate .active {
+    background-color: #aeffc8;
+}
+
+.top-group {
+    border: 1px solid #6d966d;
+    margin-bottom: 10px;
+}
+
+.region-outer {
+    margin-top: 20px
+}
+
+.region-title {
+    font-weight: bold;
+}
+
+
+.region-outer ul {
+    width: 200px;
+    padding-left: 5px
+}
+
+.region-outer li {
+    list-style: none;
+    height: 30px;
+    line-height: 30px;
+    border-bottom: 1px solid gray;
+    cursor: pointer;
+}
+
+.region-outer .active {
+    background-color: #26ff90;
+}
