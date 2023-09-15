@@ -51,10 +51,13 @@
     let regionPoints = []
     let mouseDownOption = null
     let regionAdding = false, arcuateLineAdding = false//弓形线;
-    const POLYGON_FILL = '#d5ece0', ACTIVE_POLYGON_FILL = '#9ec6d5'
+    const ACTIVE_POLYGON_FILL = '#9ec6d5',
+        POLYGON_STROKE = '#000000', ACTIVE_POLYGON_STROKE = '#0048ff',
+        POLYGON_STROKE_WIDTH = 1, ACTIVE_POLYGON_STROKE_WIDTH = 5;
     //清洁宽度//60cm = 12px 5cm
     var cleanWidth = 80 / 5
-    let rid = `region-${new Date().getTime()}`;
+    //新区域ID
+    let newRegionId = `region-${new Date().getTime()}`;
     let selectionClearedTime = new Date()
 
     fabric.Object.prototype.originX = fabric.Object.prototype.originY = 'center';
@@ -389,7 +392,6 @@
     }
 
     fabric.Polygon.prototype.controls = {}
-    //fabric.Polygon.prototype.controls.mtr  = fabric.Object.prototype.controls.mtr
     fabric.Polygon.prototype.controls.deleteControl = new fabric.Control({
         x: 0.5,
         y: -0.5,
@@ -416,9 +418,6 @@
     function addVertex(eventData, transform) {
         var target = transform.target;
         var canvas = target.canvas;
-        //console.info(target.cid, target.rid, transform.corner)
-
-
         let p1, index, orgPolygon;
         if (target.completedPolygon) {
             orgPolygon = fabricCanvas.getObjects('polygon').filter(item => item.rid == target.rid)[0]
@@ -569,9 +568,9 @@
             }
         })
         //添加polyline
-        addPolygonToCanvas(regionPoints, rid)
+        addPolygonToCanvas(regionPoints, newRegionId)
 
-        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == rid).sort((a, b) => a.cid - b.cid);
+        let cList = fabricCanvas.getObjects('circle').filter(item => item.rid == newRegionId).sort((a, b) => a.cid - b.cid);
 
         cList.forEach(item => {
             item.set({
@@ -597,7 +596,7 @@
             item.bringToFront()
         })
         regionPoints = []
-        rid = `region-${new Date().getTime()}`
+        newRegionId = `region-${new Date().getTime()}`
     }
 
     function addPolygonToCanvas(vertexList, regionId, fillColor) {
@@ -611,8 +610,8 @@
             {
                 fill: fillColor, // 填充,
                 fillColor: fillColor,
-                stroke: 'black', // 边框黑色
-                strokeWidth: 1, // 边框粗细
+                stroke: POLYGON_STROKE, // 边框黑色
+                strokeWidth: POLYGON_STROKE_WIDTH, // 边框粗细
                 objectCaching: false, // 当“true”时，对象缓存在另一个画布上。当“false”时，除非必要(clipPath)默认为 true，否则不缓存对象。默认是true
                 //selectable: false, // 禁止选中
                 //evented: false, // 当设置为“false”时，对象不能成为事件的目标。所有事件都会通过它传播。
@@ -783,8 +782,18 @@
     function canvasMouseDown(opt) {
         let point = fabricCanvas.getPointer(opt.e)
         //console.info(point)
-        if (regionAdding && currentActionType == 0 && opt.target == null) {
-            addVertexCircle(point, rid, false, null)
+        if (currentActionType == 0 && regionAdding) {
+            if (opt.target == null) {
+                addVertexCircle(point, newRegionId, false, null)
+            } else {
+                if (opt.target.tag == 'polygon-vertex' && opt.target.rid != newRegionId) {
+                    addVertexCircle({
+                        x: opt.target.left,
+                        y: opt.target.top
+                    }, newRegionId, false, null)
+                    fabricCanvas.discardActiveObject().renderAll();
+                }
+            }
         } else if (currentActionType == 1 && opt.target == null) {
             let activePolygon = checkPolygonActive(point)
             if (activePolygon && arcuateLineAdding) {
@@ -811,12 +820,14 @@
                         let orgActivePolygon = fabricCanvas.getObjects('polygon').filter(fitem => fitem.active)[0]
                         if (orgActivePolygon) {
                             orgActivePolygon.set({
-                                fill: orgActivePolygon.fillColor,
+                                stroke: POLYGON_STROKE, // 边框黑色
+                                strokeWidth: POLYGON_STROKE_WIDTH, // 边框粗细
                                 active: false
                             })
                         }
                         item.set({
-                            fill: ACTIVE_POLYGON_FILL,
+                            stroke: ACTIVE_POLYGON_STROKE, // 边框黑色
+                            strokeWidth: ACTIVE_POLYGON_STROKE_WIDTH, // 边框粗细
                             active: true
                         })
                         fabricCanvas.renderAll()
@@ -893,7 +904,8 @@
         if (index == 0) {
             fabricCanvas.getObjects('polygon').forEach(item => {
                 item.set({
-                    fill: item.fillColor,
+                    stroke: POLYGON_STROKE, // 边框黑色
+                    strokeWidth: POLYGON_STROKE_WIDTH, // 边框粗细
                     active: false
                 })
             })
